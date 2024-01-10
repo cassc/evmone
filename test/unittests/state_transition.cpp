@@ -227,7 +227,7 @@ void state_transition::export_state_test(
 
     auto& jpost = jt["post"][evmc::to_string(rev)][0];
     jpost["indexes"] = {{"data", 0}, {"gas", 0}, {"value", 0}};
-    jpost["hash"] = hex0x(mpt_hash(post.get_accounts()));
+    jpost["hash"] = hex0x(mpt_hash(TestState::from_inter_state(post).get_accounts()));
     jpost["logs"] = hex0x(logs_hash(receipt.logs));
 
     std::ofstream{get_export_test_path(test_info, export_dir)} << std::setw(2) << j;
