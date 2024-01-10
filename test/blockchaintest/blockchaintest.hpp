@@ -5,6 +5,7 @@
 
 #include "../state/bloom_filter.hpp"
 #include "../state/state.hpp"
+#include "../statetest/statetest.hpp"
 #include "../utils/utils.hpp"
 #include <evmc/evmc.hpp>
 #include <span>
@@ -54,14 +55,14 @@ struct BlockchainTest
     struct Expectation
     {
         hash256 last_block_hash;
-        std::variant<state::State, hash256> post_state;
+        std::variant<TestState, hash256> post_state;
     };
 
     std::string name;
 
     std::vector<TestBlock> test_blocks;
     BlockHeader genesis_block_header;
-    state::State pre_state;
+    TestState pre_state;
     RevisionSchedule rev;
 
     Expectation expectation;

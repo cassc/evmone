@@ -10,6 +10,49 @@ namespace json = nlohmann;
 
 namespace evmone::test
 {
+class TestState
+{
+    std::unordered_map<address, state::AccountBase> m_accounts;
+
+public:
+    const auto& get_accounts() const noexcept { return m_accounts; }
+
+    state::AccountBase& insert(address addr, state::AccountBase acc)
+    {
+        const auto [it, inserted] = m_accounts.insert({addr, std::move(acc)});
+        assert(inserted);
+        return it->second;
+    }
+
+    state::State to_inter_state() const
+    {
+        state::State out;
+        for (const auto& [addr, acc] : m_accounts)
+        {
+            auto& a =
+                out.insert(addr, {.nonce = acc.nonce, .balance = acc.balance, .code = acc.code});
+            for (const auto& [k, v] : acc.storage)
+                a.storage.insert({k, {.current = v, .original = v}});
+        }
+        return out;
+    }
+
+    static TestState from_inter_state(const state::State& in)
+    {
+        TestState out;
+        for (const auto& [addr, acc] : in.get_accounts())
+        {
+            auto& a =
+                out.insert(addr, {.nonce = acc.nonce, .balance = acc.balance, .code = acc.code});
+            for (const auto& [k, v] : acc.storage)
+            {
+                if (v.current)
+                    a.storage.insert({k, v.current});
+            }
+        }
+        return out;
+    }
+};
 
 struct TestMultiTransaction : state::Transaction
 {
@@ -53,7 +96,7 @@ struct StateTransitionTest
         std::vector<Expectation> expectations;
     };
 
-    state::State pre_state;
+    TestState pre_state;
     state::BlockInfo block;
     TestMultiTransaction multi_tx;
     std::vector<Case> cases;
@@ -85,7 +128,7 @@ template <>
 state::Withdrawal from_json<state::Withdrawal>(const json::json& j);
 
 template <>
-state::State from_json<state::State>(const json::json& j);
+TestState from_json<TestState>(const json::json& j);
 
 template <>
 state::Transaction from_json<state::Transaction>(const json::json& j);
@@ -99,7 +142,7 @@ StateTransitionTest load_state_test(std::istream& input);
 /// - checks that there are no zero-value storage entries,
 /// - checks that there are no invalid EOF codes.
 /// Throws std::invalid_argument exception.
-void validate_state(const state::State& state, evmc_revision rev);
+void validate_state(const TestState& state, evmc_revision rev);
 
 /// Execute the state @p test using the @p vm.
 ///
