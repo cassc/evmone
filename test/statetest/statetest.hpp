@@ -53,6 +53,9 @@ public:
         m_accounts.clear();
         for (const auto& [addr, acc] : in.get_accounts())
         {
+            if (acc.erase_if_empty && acc.is_empty())
+                continue;
+
             auto& a = insert(addr, {.nonce = acc.nonce, .balance = acc.balance, .code = acc.code});
             for (const auto& [k, v] : acc.storage)
             {
