@@ -29,11 +29,13 @@ struct TransitionResult
 
 namespace
 {
-TransitionResult apply_block(state::State& state, evmc::VM& vm, const state::BlockInfo& block,
+TransitionResult apply_block(TestState& state, evmc::VM& vm, const state::BlockInfo& block,
     const std::vector<state::Transaction>& txs, evmc_revision rev,
     std::optional<int64_t> block_reward)
 {
-    state::system_call(state, block, rev, vm);
+    auto ss = state.to_inter_state();
+    state::system_call(ss, block, rev, vm);
+    state = TestState::from_inter_state(ss);
 
     std::vector<state::Log> txs_logs;
     int64_t block_gas_left = block.gas_limit;
@@ -49,7 +51,7 @@ TransitionResult apply_block(state::State& state, evmc::VM& vm, const state::Blo
         const auto& tx = txs[i];
 
         const auto computed_tx_hash = keccak256(rlp::encode(tx));
-        auto res = state::transition(state, block, tx, rev, vm, block_gas_left, blob_gas_left);
+        auto res = test::transition(state, block, tx, rev, vm, block_gas_left, blob_gas_left);
 
         if (holds_alternative<std::error_code>(res))
         {
@@ -66,8 +68,7 @@ TransitionResult apply_block(state::State& state, evmc::VM& vm, const state::Blo
             cumulative_gas_used += receipt.gas_used;
             receipt.cumulative_gas_used = cumulative_gas_used;
             if (rev < EVMC_BYZANTIUM)
-                receipt.post_state =
-                    state::mpt_hash(TestState::from_inter_state(state).get_accounts());
+                receipt.post_state = state::mpt_hash(state.get_accounts());
 
             block_gas_left -= receipt.gas_used;
             blob_gas_left -= tx.blob_gas_used();
@@ -75,7 +76,7 @@ TransitionResult apply_block(state::State& state, evmc::VM& vm, const state::Blo
         }
     }
 
-    state::finalize(state, rev, block.coinbase, block_reward, block.ommers, block.withdrawals);
+    test::finalize(state, rev, block.coinbase, block_reward, block.ommers, block.withdrawals);
 
     const auto bloom = compute_bloom_filter(receipts);
     return {std::move(receipts), std::move(rejected_txs), cumulative_gas_used, bloom};
@@ -132,7 +133,7 @@ void run_blockchain_tests(std::span<const BlockchainTest> tests, evmc::VM& vm)
         SCOPED_TRACE(std::string{evmc::to_string(c.rev.get_revision(0))} + '/' +
                      std::to_string(case_index) + '/' + c.name);
 
-        auto state = c.pre_state.to_inter_state();
+        auto state = c.pre_state;
 
         const state::BlockInfo genesis{
             .number = c.genesis_block_header.block_number,
@@ -153,7 +154,7 @@ void run_blockchain_tests(std::span<const BlockchainTest> tests, evmc::VM& vm)
         const auto pre_state_hash = mpt_hash(c.pre_state.get_accounts());
         const auto genesis_res = apply_block(state, vm, genesis, {}, c.rev.get_revision(0), {});
 
-        EXPECT_EQ(mpt_hash(TestState::from_inter_state(state).get_accounts()), pre_state_hash);
+        EXPECT_EQ(mpt_hash(state.get_accounts()), pre_state_hash);
 
         if (c.rev.get_revision(0) >= EVMC_SHANGHAI)
         {
@@ -184,8 +185,8 @@ void run_blockchain_tests(std::span<const BlockchainTest> tests, evmc::VM& vm)
             SCOPED_TRACE(std::string{evmc::to_string(rev)} + '/' + std::to_string(case_index) +
                          '/' + c.name + '/' + std::to_string(test_block.block_info.number));
 
-            EXPECT_EQ(state::mpt_hash(TestState::from_inter_state(state).get_accounts()),
-                test_block.expected_block_header.state_root);
+            EXPECT_EQ(
+                state::mpt_hash(state.get_accounts()), test_block.expected_block_header.state_root);
 
             if (rev >= EVMC_SHANGHAI)
             {
@@ -208,10 +209,9 @@ void run_blockchain_tests(std::span<const BlockchainTest> tests, evmc::VM& vm)
             std::holds_alternative<TestState>(c.expectation.post_state) ?
                 state::mpt_hash(std::get<TestState>(c.expectation.post_state).get_accounts()) :
                 std::get<hash256>(c.expectation.post_state);
-        EXPECT_TRUE(
-            state::mpt_hash(TestState::from_inter_state(state).get_accounts()) == post_state_hash)
+        EXPECT_TRUE(state::mpt_hash(state.get_accounts()) == post_state_hash)
             << "Result state:\n"
-            << print_state(TestState::from_inter_state(state))
+            << print_state(state)
             << (std::holds_alternative<TestState>(c.expectation.post_state) ?
                        "\n\nExpected state:\n" +
                            print_state(std::get<TestState>(c.expectation.post_state)) :
