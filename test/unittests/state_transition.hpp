@@ -7,12 +7,12 @@
 #include <gtest/gtest.h>
 #include <test/state/errors.hpp>
 #include <test/state/host.hpp>
+#include <test/statetest/statetest.hpp>
 
 namespace evmone::test
 {
 using namespace evmone;
 using namespace evmone::state;
-class TestState;
 
 /// Fixture to defining test cases in form similar to JSON State Tests.
 ///
@@ -84,7 +84,7 @@ protected:
         .sender = Sender,
         .nonce = 1,
     };
-    State pre;
+    TestState pre;
     Expectation expect;
 
     void SetUp() override;

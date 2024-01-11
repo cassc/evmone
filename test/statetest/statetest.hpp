@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include "../state/account.hpp"
 #include "../state/state.hpp"
 #include <nlohmann/json.hpp>
 
@@ -32,6 +33,12 @@ public:
         else
             return it->second;
     }
+
+    /// For tests only.
+    state::AccountBase& get(const address& addr) noexcept { return m_accounts.find(addr)->second; }
+
+    /// For tests only.
+    void erase(const address& addr) noexcept { m_accounts.erase(addr); }
 
     state::State to_inter_state() const
     {

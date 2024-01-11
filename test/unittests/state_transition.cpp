@@ -48,8 +48,7 @@ void state_transition::TearDown()
             << "no support for EIP-1559 transactions";
     }
 
-    auto state = TestState::from_inter_state(pre);
-    validate_state(state, rev);
+    validate_state(pre, rev);
 
     // Execution:
 
