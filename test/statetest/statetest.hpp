@@ -50,20 +50,25 @@ public:
 
     void apply_diff(const state::State& in)
     {
-        m_accounts.clear();
         for (const auto& [addr, acc] : in.get_accounts())
         {
-            if (acc.erase_if_empty && acc.is_empty())
+            if (acc.destructed || (acc.erase_if_empty && acc.is_empty()))
+            {
+                m_accounts.erase(addr);
                 continue;
+            }
 
-            if (acc.destructed)
-                continue;
-
-            auto& a = insert(addr, {.nonce = acc.nonce, .balance = acc.balance, .code = acc.code});
+            auto& a = m_accounts
+                          .insert_or_assign(addr,
+                              state::AccountBase{
+                                  .nonce = acc.nonce, .balance = acc.balance, .code = acc.code})
+                          .first->second;
             for (const auto& [k, v] : acc.storage)
             {
                 if (v.current)
-                    a.storage.insert({k, v.current});
+                    a.storage.insert_or_assign(k, v.current);
+                else
+                    a.storage.erase(k);
             }
         }
     }
