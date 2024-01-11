@@ -40,13 +40,7 @@ public:
     /// For tests only.
     void erase(const address& addr) noexcept { m_accounts.erase(addr); }
 
-    state::State to_inter_state() const
-    {
-        state::State out{*this};
-        for (const auto& [addr, _] : m_accounts)
-            out.find(addr);
-        return out;
-    }
+    state::State to_inter_state() const { return state::State{*this}; }
 
     void apply_diff(const state::State& in)
     {
