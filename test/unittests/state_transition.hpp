@@ -12,6 +12,7 @@ namespace evmone::test
 {
 using namespace evmone;
 using namespace evmone::state;
+class TestState;
 
 /// Fixture to defining test cases in form similar to JSON State Tests.
 ///
@@ -93,7 +94,7 @@ protected:
 
     /// Exports the test in the JSON State Test format in the given directory.
     void export_state_test(
-        const TransactionReceipt& receipt, const State& post, std::string_view export_dir);
+        const TransactionReceipt& receipt, const TestState& post, std::string_view export_dir);
 };
 
 }  // namespace evmone::test

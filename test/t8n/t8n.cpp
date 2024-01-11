@@ -72,14 +72,13 @@ int main(int argc, const char* argv[])
         }
 
         state::BlockInfo block;
-        state::State state;
+        test::TestState state;
 
         if (!alloc_file.empty())
         {
             const auto j = json::json::parse(std::ifstream{alloc_file}, nullptr, false);
-            const auto test_state = test::from_json<test::TestState>(j);
-            validate_state(test_state, rev);
-            state = test_state.to_inter_state();
+            state = test::from_json<test::TestState>(j);
+            validate_state(state, rev);
         }
         if (!env_file.empty())
         {
@@ -165,7 +164,7 @@ int main(int argc, const char* argv[])
                     }
 
                     auto res =
-                        state::transition(state, block, tx, rev, vm, block_gas_left, blob_gas_left);
+                        test::transition(state, block, tx, rev, vm, block_gas_left, blob_gas_left);
 
                     if (holds_alternative<std::error_code>(res))
                     {
@@ -190,8 +189,7 @@ int main(int argc, const char* argv[])
                         cumulative_gas_used += receipt.gas_used;
                         receipt.cumulative_gas_used = cumulative_gas_used;
                         if (rev < EVMC_BYZANTIUM)
-                            receipt.post_state =
-                                state::mpt_hash(TestState::from_inter_state(state).get_accounts());
+                            receipt.post_state = state::mpt_hash(state.get_accounts());
                         j_receipt["cumulativeGasUsed"] = hex0x(cumulative_gas_used);
 
                         j_receipt["blockHash"] = hex0x(bytes32{});
@@ -213,12 +211,11 @@ int main(int argc, const char* argv[])
                 }
             }
 
-            state::finalize(
+            test::finalize(
                 state, rev, block.coinbase, block_reward, block.ommers, block.withdrawals);
 
             j_result["logsHash"] = hex0x(logs_hash(txs_logs));
-            j_result["stateRoot"] =
-                hex0x(state::mpt_hash(TestState::from_inter_state(state).get_accounts()));
+            j_result["stateRoot"] = hex0x(state::mpt_hash(state.get_accounts()));
         }
 
         j_result["logsBloom"] = hex0x(compute_bloom_filter(receipts));

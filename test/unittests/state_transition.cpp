@@ -48,11 +48,11 @@ void state_transition::TearDown()
             << "no support for EIP-1559 transactions";
     }
 
-    // FIXME: validate_state(pre, rev);
+    auto state = TestState::from_inter_state(pre);
+    validate_state(state, rev);
 
     // Execution:
 
-    auto state = pre;
     const auto trace = !expect.trace.empty();
     auto& selected_vm = trace ? tracing_vm : vm;
 
@@ -61,7 +61,7 @@ void state_transition::TearDown()
     if (trace)
         trace_capture.emplace();
 
-    const auto res = state::transition(state, block, tx, rev, selected_vm, block.gas_limit,
+    const auto res = test::transition(state, block, tx, rev, selected_vm, block.gas_limit,
         state::BlockInfo::MAX_BLOB_GAS_PER_BLOCK);
 
     if (const auto expected_error = make_error_code(expect.tx_error))
@@ -86,7 +86,7 @@ void state_transition::TearDown()
     ASSERT_TRUE(holds_alternative<TransactionReceipt>(res))
         << std::get<std::error_code>(res).message();
     const auto& receipt = std::get<TransactionReceipt>(res);
-    state::finalize(state, rev, block.coinbase, block_reward, block.ommers, block.withdrawals);
+    test::finalize(state, rev, block.coinbase, block_reward, block.ommers, block.withdrawals);
 
     if (trace)
     {
@@ -101,9 +101,10 @@ void state_transition::TearDown()
         EXPECT_EQ(receipt.gas_used, *expect.gas_used);
     }
 
+    auto inter_state = state.to_inter_state();
     for (const auto& [addr, expected_acc] : expect.post)
     {
-        const auto acc = state.find(addr);
+        const auto acc = inter_state.find(addr);
         if (!expected_acc.exists)
         {
             EXPECT_EQ(acc, nullptr) << "account " << addr << " should not exist";
@@ -174,7 +175,7 @@ fs::path get_export_test_path(const testing::TestInfo& test_info, std::string_vi
 }  // namespace
 
 void state_transition::export_state_test(
-    const TransactionReceipt& receipt, const State& post, std::string_view export_dir)
+    const TransactionReceipt& receipt, const TestState& post, std::string_view export_dir)
 {
     const auto& test_info = *testing::UnitTest::GetInstance()->current_test_info();
 
@@ -188,7 +189,7 @@ void state_transition::export_state_test(
     jenv["currentCoinbase"] = hex0x(block.coinbase);
     jenv["currentBaseFee"] = hex0x(block.base_fee);
 
-    jt["pre"] = to_json(pre.get_accounts());
+    // jt["pre"] = to_json(pre.get_accounts()); FIXME
 
     auto& jtx = jt["transaction"];
     if (tx.to.has_value())
@@ -227,7 +228,7 @@ void state_transition::export_state_test(
 
     auto& jpost = jt["post"][evmc::to_string(rev)][0];
     jpost["indexes"] = {{"data", 0}, {"gas", 0}, {"value", 0}};
-    jpost["hash"] = hex0x(mpt_hash(TestState::from_inter_state(post).get_accounts()));
+    jpost["hash"] = hex0x(mpt_hash(post.get_accounts()));
     jpost["logs"] = hex0x(logs_hash(receipt.logs));
 
     std::ofstream{get_export_test_path(test_info, export_dir)} << std::setw(2) << j;

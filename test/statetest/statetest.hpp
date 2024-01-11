@@ -54,6 +54,25 @@ public:
     }
 };
 
+[[nodiscard]] inline std::variant<state::TransactionReceipt, std::error_code> transition(
+    TestState& state, const state::BlockInfo& block, const state::Transaction& tx,
+    evmc_revision rev, evmc::VM& vm, int64_t block_gas_left, int64_t blob_gas_left)
+{
+    auto ss = state.to_inter_state();
+    auto res = state::transition(ss, block, tx, rev, vm, block_gas_left, blob_gas_left);
+    state = TestState::from_inter_state(ss);
+    return res;
+}
+
+inline void finalize(TestState& state, evmc_revision rev, const address& coinbase,
+    std::optional<uint64_t> block_reward, std::span<const state::Ommer> ommers,
+    std::span<const state::Withdrawal> withdrawals)
+{
+    auto ss = state.to_inter_state();
+    state::finalize(ss, rev, coinbase, block_reward, ommers, withdrawals);
+    state = TestState::from_inter_state(ss);
+}
+
 struct TestMultiTransaction : state::Transaction
 {
     struct Indexes
@@ -134,7 +153,7 @@ template <>
 state::Transaction from_json<state::Transaction>(const json::json& j);
 
 /// Exports the State (accounts) to JSON format (aka pre/post/alloc state).
-json::json to_json(const std::unordered_map<address, state::Account>& accounts);
+json::json to_json(const std::unordered_map<address, state::AccountBase>& accounts);
 
 StateTransitionTest load_state_test(std::istream& input);
 
