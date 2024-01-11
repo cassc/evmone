@@ -56,6 +56,9 @@ public:
             if (acc.erase_if_empty && acc.is_empty())
                 continue;
 
+            if (acc.destructed)
+                continue;
+
             auto& a = insert(addr, {.nonce = acc.nonce, .balance = acc.balance, .code = acc.code});
             for (const auto& [k, v] : acc.storage)
             {
