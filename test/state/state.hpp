@@ -14,6 +14,14 @@
 
 namespace evmone::state
 {
+class StateView
+{
+public:
+    virtual ~StateView() = default;
+    [[nodiscard]] virtual std::optional<AccountBase> get_account(address addr) const noexcept = 0;
+};
+
+
 /// The Ethereum State: the collection of accounts mapped by their addresses.
 ///
 /// TODO: This class is copyable for testing. Consider making it non-copyable.

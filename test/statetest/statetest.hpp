@@ -10,7 +10,7 @@ namespace json = nlohmann;
 
 namespace evmone::test
 {
-class TestState
+class TestState : public state::StateView
 {
     std::unordered_map<address, state::AccountBase> m_accounts;
 
@@ -22,6 +22,15 @@ public:
         const auto [it, inserted] = m_accounts.insert({addr, std::move(acc)});
         assert(inserted);
         return it->second;
+    }
+
+    std::optional<state::AccountBase> get_account(address addr) const noexcept override
+    {
+        const auto it = m_accounts.find(addr);
+        if (it == m_accounts.end())
+            return std::nullopt;
+        else
+            return it->second;
     }
 
     state::State to_inter_state() const
