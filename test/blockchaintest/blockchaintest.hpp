@@ -44,7 +44,6 @@ struct BlockHeader
 struct TestBlock
 {
     state::BlockInfo block_info;
-    state::State pre_state;
     std::vector<state::Transaction> transactions;
 
     BlockHeader expected_block_header;
