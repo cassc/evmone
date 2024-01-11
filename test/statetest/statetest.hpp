@@ -48,20 +48,18 @@ public:
         return out;
     }
 
-    static TestState from_inter_state(const state::State& in)
+    void apply_diff(const state::State& in)
     {
-        TestState out;
+        m_accounts.clear();
         for (const auto& [addr, acc] : in.get_accounts())
         {
-            auto& a =
-                out.insert(addr, {.nonce = acc.nonce, .balance = acc.balance, .code = acc.code});
+            auto& a = insert(addr, {.nonce = acc.nonce, .balance = acc.balance, .code = acc.code});
             for (const auto& [k, v] : acc.storage)
             {
                 if (v.current)
                     a.storage.insert({k, v.current});
             }
         }
-        return out;
     }
 };
 
@@ -71,7 +69,7 @@ public:
 {
     auto ss = state.to_inter_state();
     auto res = state::transition(ss, block, tx, rev, vm, block_gas_left, blob_gas_left);
-    state = TestState::from_inter_state(ss);
+    state.apply_diff(ss);
     return res;
 }
 
@@ -81,7 +79,7 @@ inline void finalize(TestState& state, evmc_revision rev, const address& coinbas
 {
     auto ss = state.to_inter_state();
     state::finalize(ss, rev, coinbase, block_reward, ommers, withdrawals);
-    state = TestState::from_inter_state(ss);
+    state.apply_diff(ss);
 }
 
 struct TestMultiTransaction : state::Transaction
