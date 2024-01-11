@@ -42,14 +42,9 @@ public:
 
     state::State to_inter_state() const
     {
-        state::State out;
-        for (const auto& [addr, acc] : m_accounts)
-        {
-            auto& a =
-                out.insert(addr, {.nonce = acc.nonce, .balance = acc.balance, .code = acc.code});
-            for (const auto& [k, v] : acc.storage)
-                a.storage.insert({k, {.current = v, .original = v}});
-        }
+        state::State out{*this};
+        for (const auto& [addr, _] : m_accounts)
+            out.find(addr);
         return out;
     }
 

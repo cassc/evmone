@@ -28,7 +28,7 @@ public:
 class State
 {
 public:
-    State() = default;
+    explicit State(const StateView& view) noexcept : m_cold{&view} {}
     State(const State&) = delete;
     State& operator=(const State&) = delete;
 
@@ -78,6 +78,8 @@ private:
     using JournalEntry =
         std::variant<JournalBalanceChange, JournalTouched, JournalStorageChange, JournalNonceBump,
             JournalCreate, JournalTransientStorageChange, JournalDestruct, JournalAccessAccount>;
+
+    const StateView* m_cold = nullptr;
 
     std::unordered_map<address, Account> m_accounts;
 
