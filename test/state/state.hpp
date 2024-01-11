@@ -19,6 +19,14 @@ namespace evmone::state
 /// TODO: This class is copyable for testing. Consider making it non-copyable.
 class State
 {
+public:
+    State() = default;
+    State(const State&) = delete;
+    State& operator=(const State&) = delete;
+
+    State(State&&) = default;
+
+private:
     struct JournalBase
     {
         address addr;
