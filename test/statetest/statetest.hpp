@@ -48,8 +48,6 @@ public:
     /// For tests only.
     void erase(const address& addr) noexcept { m_accounts.erase(addr); }
 
-    state::State to_inter_state() const { return state::State{*this}; }
-
     void apply_diff(const state::State& in)
     {
         for (const auto& [addr, acc] : in.get_accounts())
@@ -80,7 +78,7 @@ public:
     TestState& state, const state::BlockInfo& block, const state::Transaction& tx,
     evmc_revision rev, evmc::VM& vm, int64_t block_gas_left, int64_t blob_gas_left)
 {
-    auto ss = state.to_inter_state();
+    state::State ss{state};
     auto res = state::transition(ss, block, tx, rev, vm, block_gas_left, blob_gas_left);
     state.apply_diff(ss);
     return res;
@@ -90,7 +88,7 @@ inline void finalize(TestState& state, evmc_revision rev, const address& coinbas
     std::optional<uint64_t> block_reward, std::span<const state::Ommer> ommers,
     std::span<const state::Withdrawal> withdrawals)
 {
-    auto ss = state.to_inter_state();
+    state::State ss{state};
     state::finalize(ss, rev, coinbase, block_reward, ommers, withdrawals);
     state.apply_diff(ss);
 }
