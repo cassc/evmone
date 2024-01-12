@@ -16,7 +16,10 @@ hash256 mpt_hash(const std::unordered_map<hash256, bytes32>& storage)
 {
     MPT trie;
     for (const auto& [key, value] : storage)
+    {
+        assert(value);  // There should be not zero values in the storage.
         trie.insert(keccak256(key), rlp::encode(rlp::trim(value)));
+    }
     return trie.hash();
 }
 }  // namespace
