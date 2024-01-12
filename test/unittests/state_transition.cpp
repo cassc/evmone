@@ -101,10 +101,9 @@ void state_transition::TearDown()
         EXPECT_EQ(receipt.gas_used, *expect.gas_used);
     }
 
-    auto inter_state = state.to_inter_state();
     for (const auto& [addr, expected_acc] : expect.post)
     {
-        const auto acc = inter_state.find(addr);
+        const auto acc = state.find(addr);
         if (!expected_acc.exists)
         {
             EXPECT_EQ(acc, nullptr) << "account " << addr << " should not exist";
@@ -128,13 +127,13 @@ void state_transition::TearDown()
             }
             for (const auto& [key, value] : expected_acc.storage)
             {
-                EXPECT_EQ(acc->storage[key].current, value) << "account " << addr << " key " << key;
+                EXPECT_EQ(acc->storage[key], value) << "account " << addr << " key " << key;
             }
             for (const auto& [key, value] : acc->storage)
             {
                 // Find unexpected storage keys. This will also report entries with value 0.
                 EXPECT_TRUE(expected_acc.storage.contains(key))
-                    << "unexpected storage key " << key << "=" << value.current << " in " << addr;
+                    << "unexpected storage key " << key << "=" << value << " in " << addr;
             }
         }
     }

@@ -35,7 +35,15 @@ public:
     }
 
     /// For tests only.
-    state::AccountBase& get(const address& addr) noexcept { return m_accounts.find(addr)->second; }
+    state::AccountBase* find(const address& addr) noexcept
+    {
+        if (const auto it = m_accounts.find(addr); it != m_accounts.end())
+            return &it->second;
+        return nullptr;
+    }
+
+    /// For tests only.
+    state::AccountBase& get(const address& addr) noexcept { return *find(addr); }
 
     /// For tests only.
     void erase(const address& addr) noexcept { m_accounts.erase(addr); }
