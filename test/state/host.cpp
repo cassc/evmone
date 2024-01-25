@@ -305,9 +305,22 @@ evmc::Result Host::create(const evmc_message& msg) noexcept
                                           evmc::Result{EVMC_FAILURE};
     }
 
-    if (m_rev >= EVMC_LONDON && m_rev < EVMC_PRAGUE && !code.empty() &&
-        code[0] == 0xEF)  // Reject EF code.
-        return evmc::Result{EVMC_CONTRACT_VALIDATION_FAILURE};
+    if (!code.empty() && code[0] == 0xEF)
+    {
+        if (m_rev >= EVMC_LONDON && m_rev < EVMC_PRAGUE)
+        {
+            // EIP-3541: Reject EF code.
+            return evmc::Result{EVMC_CONTRACT_VALIDATION_FAILURE};
+        }
+        else if (m_rev >= EVMC_PRAGUE)
+        {
+            // Only CREATE3/4 is allowed to deploy code starting with EF.
+            // It must be valid EOF, which was validated before execution.
+            if (msg.kind != EVMC_CREATE3)
+                return evmc::Result{EVMC_CONTRACT_VALIDATION_FAILURE};
+            assert(validate_eof(m_rev, code) == EOFValidationError::success);
+        }
+    }
 
     new_acc.code = code;
 
