@@ -507,16 +507,24 @@ void finalize(State& state, evmc_revision rev, const address& coinbase,
         const auto reward_by_32 = reward / 32;
         const auto reward_by_8 = reward / 8;
 
-        state.touch(rev, coinbase).balance += reward + reward_by_32 * ommers.size();
+        auto& coinbase_acc = state.touch(rev, coinbase);
+        state.journal_balance_change(coinbase, coinbase_acc.balance);
+        coinbase_acc.balance += reward + reward_by_32 * ommers.size();
         for (const auto& ommer : ommers)
         {
             assert(ommer.delta > 0 && ommer.delta < 8);
-            state.touch(rev, ommer.beneficiary).balance += reward_by_8 * (8 - ommer.delta);
+            auto& ommer_acc = state.touch(rev, ommer.beneficiary);
+            state.journal_balance_change(ommer.beneficiary, ommer_acc.balance);
+            ommer_acc.balance += reward_by_8 * (8 - ommer.delta);
         }
     }
 
     for (const auto& withdrawal : withdrawals)
-        state.touch(rev, withdrawal.recipient).balance += withdrawal.get_amount();
+    {
+        auto& recipient_acc = state.touch(rev, withdrawal.recipient);
+        state.journal_balance_change(withdrawal.recipient, recipient_acc.balance);
+        recipient_acc.balance += withdrawal.get_amount();
+    }
 
     // Delete potentially empty block reward recipients.
     delete_empty_accounts(state);
@@ -541,6 +549,8 @@ std::variant<TransactionReceipt, std::error_code> transition(State& state, const
     // Once the transaction is valid, create new sender account.
     // The account won't be empty because its nonce will be bumped.
     auto& sender_acc = (sender_ptr != nullptr) ? *sender_ptr : state.insert(tx.sender);
+    state.journal_balance_change(tx.sender, sender_acc.balance);
+    state.journal_bump_nonce(tx.sender);  // Remember nonce modification.
 
     const auto execution_gas_limit = get<int64_t>(validation_result);
 
@@ -592,7 +602,9 @@ std::variant<TransactionReceipt, std::error_code> transition(State& state, const
     assert(gas_used > 0);
 
     sender_acc.balance += tx_max_cost - gas_used * effective_gas_price;
-    state.touch(rev, block.coinbase).balance += gas_used * priority_gas_price;
+    auto& coinbase = state.touch(rev, block.coinbase);
+    state.journal_balance_change(block.coinbase, coinbase.balance);
+    coinbase.balance += gas_used * priority_gas_price;
 
     // Apply destructs.
     // std::erase_if(state.get_accounts(),
