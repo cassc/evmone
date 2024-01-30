@@ -15,6 +15,8 @@
 
 namespace evmone::state
 {
+struct StateDiff;
+
 class StateView
 {
 public:
@@ -112,6 +114,8 @@ public:
 
     /// Reverts state changes made after the checkpoint.
     void rollback(size_t checkpoint);
+
+    StateDiff build_diff();
 
     /// Methods performing changes to the state which can be reverted by rollback().
     /// @{
