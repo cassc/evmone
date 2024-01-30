@@ -72,6 +72,35 @@ public:
             }
         }
     }
+
+    void apply_diff(const state::StateDiff& d)
+    {
+        for (const auto& [addr, e] : d.modified_storage)
+        {
+            auto& a = m_accounts[addr];
+            for (const auto& [k, v] : e)
+            {
+                if (v)
+                    a.storage.insert_or_assign(k, v);
+                else
+                    a.storage.erase(k);
+            }
+        }
+
+        for (const auto& [addr, m] : d.modified_accounts)
+        {
+            auto& a = m_accounts[addr];
+            if (m.balance)
+                a.balance = *m.balance;
+            if (m.nonce)
+                a.nonce = *m.nonce;
+            if (m.code)
+                a.code = *m.code;
+        }
+
+        for (const auto& addr : d.deleted_accounts)
+            m_accounts.erase(addr);
+    }
 };
 
 [[nodiscard]] inline std::variant<state::TransactionReceipt, std::error_code> transition(
@@ -80,7 +109,11 @@ public:
 {
     state::State ss{state};
     auto res = state::transition(ss, block, tx, rev, vm, block_gas_left, blob_gas_left);
-    state.apply_diff(ss);
+    if (holds_alternative<state::TransactionReceipt>(res))
+    {
+        const auto& r = get<state::TransactionReceipt>(res);
+        state.apply_diff(r.state_diff);
+    }
     return res;
 }
 

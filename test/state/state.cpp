@@ -297,7 +297,8 @@ StateDiff State::build_diff()
                 else if constexpr (std::is_same_v<T, JournalTouched>)
                 {
                     const auto& acc = get(e.addr);
-                    if (acc.erase_if_empty && acc.is_empty())
+                    assert(acc.erase_if_empty);
+                    if (acc.is_empty())
                         d.deleted_accounts.insert(e.addr);
                 }
                 else if constexpr (std::is_same_v<T, JournalDestruct>)
@@ -324,7 +325,10 @@ StateDiff State::build_diff()
                 }
                 else if constexpr (std::is_same_v<T, JournalBalanceChange>)
                 {
-                    d.modified_accounts[e.addr].balance = m_accounts[e.addr].balance;
+                    // FIXME: In SELFDESTRUCT only change balance if not 0.
+                    const auto& acc = get(e.addr);
+                    if (!(acc.erase_if_empty && acc.is_empty()))
+                        d.modified_accounts[e.addr].balance = acc.balance;
                 }
                 else
                 {
