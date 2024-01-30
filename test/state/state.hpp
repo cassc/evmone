@@ -9,6 +9,7 @@
 #include "hash_utils.hpp"
 #include <cassert>
 #include <optional>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -134,6 +135,20 @@ public:
     void journal_access_account(const address& addr);
 
     /// @}
+};
+
+struct StateDiff
+{
+    struct Account
+    {
+        std::optional<uint64_t> nonce;
+        std::optional<intx::uint256> balance;
+        std::optional<bytes> code;
+    };
+
+    std::unordered_map<address, Account> modified_accounts;
+    std::unordered_set<address> deleted_accounts;
+    std::unordered_map<address, std::unordered_map<bytes32, bytes32>> modified_storage;
 };
 
 struct Ommer
@@ -268,6 +283,8 @@ struct TransactionReceipt
 
     /// Root hash of the state after this transaction. Used only in old pre-Byzantium transactions.
     std::optional<bytes32> post_state;
+
+    StateDiff state_diff;
 };
 
 /// Computes the current blob gas price based on the excess blob gas.
