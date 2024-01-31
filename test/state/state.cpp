@@ -285,7 +285,7 @@ void State::rollback(size_t checkpoint)
 StateDiff State::build_diff()
 {
     StateDiff d;
-    for (const auto& e : m_journal)
+    for (const auto& ee : m_journal)
     {
         std::visit(
             [&d, this](const auto& e) {
@@ -336,7 +336,7 @@ StateDiff State::build_diff()
                     static_assert(std::is_void_v<T>, "unhandled journal entry type");
                 }
             },
-            e);
+            ee);
     }
     return d;
 }
