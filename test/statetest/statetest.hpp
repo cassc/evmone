@@ -48,31 +48,6 @@ public:
     /// For tests only.
     void erase(const address& addr) noexcept { m_accounts.erase(addr); }
 
-    void apply_diff(const state::State& in)
-    {
-        for (const auto& [addr, acc] : in.get_accounts())
-        {
-            if (acc.destructed || (acc.erase_if_empty && acc.is_empty()))
-            {
-                m_accounts.erase(addr);
-                continue;
-            }
-
-            auto& a = m_accounts
-                          .insert_or_assign(addr,
-                              state::AccountBase{
-                                  .nonce = acc.nonce, .balance = acc.balance, .code = acc.code})
-                          .first->second;
-            for (const auto& [k, v] : acc.storage)
-            {
-                if (v.current)
-                    a.storage.insert_or_assign(k, v.current);
-                else
-                    a.storage.erase(k);
-            }
-        }
-    }
-
     void apply_diff(const state::StateDiff& d)
     {
         for (const auto& [addr, e] : d.modified_storage)
