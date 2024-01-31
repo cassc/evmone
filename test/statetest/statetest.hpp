@@ -122,8 +122,8 @@ inline void finalize(TestState& state, evmc_revision rev, const address& coinbas
     std::span<const state::Withdrawal> withdrawals)
 {
     state::State ss{state};
-    state::finalize(ss, rev, coinbase, block_reward, ommers, withdrawals);
-    state.apply_diff(ss);
+    const auto diff = state::finalize(ss, rev, coinbase, block_reward, ommers, withdrawals);
+    state.apply_diff(diff);
 }
 
 struct TestMultiTransaction : state::Transaction
