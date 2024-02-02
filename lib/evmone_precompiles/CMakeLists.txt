@@ -9,6 +9,7 @@ target_sources(
     evmone_precompiles PRIVATE
     bn254.hpp
     bn254.cpp
+    bn254_pairing.cpp
     ecc.hpp
     secp256k1.cpp
     secp256k1.hpp

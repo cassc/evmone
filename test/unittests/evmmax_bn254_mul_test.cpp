@@ -247,3 +247,8 @@ TEST(evmmax, bn254_pt_mul)
         EXPECT_EQ(r, e);
     }
 }
+
+TEST(evmmax, bn254_pairing)
+{
+    EXPECT_EQ(pairing({}, {}), false);
+}

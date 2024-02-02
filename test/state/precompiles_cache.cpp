@@ -16,6 +16,8 @@ namespace evmone::state
 {
 std::optional<evmc::Result> Cache::find(PrecompileId id, bytes_view input, int64_t gas_left) const
 {
+    if (id == PrecompileId::ecpairing)
+        std::cout << input.size() << ": " + evmc::hex(input) << std::endl;
     if (const auto& cache = m_cache.at(stdx::to_underlying(id)); !cache.empty())
     {
         const auto input_hash = keccak256(input);

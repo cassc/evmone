@@ -40,4 +40,6 @@ Point add(const Point& pt1, const Point& pt2) noexcept;
 /// Computes [c]P for a point in affine coordinate on the bn254 curve,
 Point mul(const Point& pt, const uint256& c) noexcept;
 
+bool pairing(const std::vector<Point>& pG1, const std::vector<Point>& pG2) noexcept;
+
 }  // namespace evmmax::bn254
