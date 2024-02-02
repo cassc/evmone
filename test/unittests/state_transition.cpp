@@ -52,6 +52,7 @@ void state_transition::TearDown()
 
     // Execution:
 
+    auto state = pre;
     const auto trace = !expect.trace.empty();
     auto& selected_vm = trace ? tracing_vm : vm;
 
