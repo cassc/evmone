@@ -100,8 +100,7 @@ TEST_F(state_transition, access_list_storage)
     tx.to = To;
     tx.access_list = {{To, {0x01_bytes32}}};
 
-    pre.insert(To,
-        {.storage = {{0x01_bytes32, {0x01_bytes32, 0x01_bytes32}}}, .code = sstore(2, sload(1))});
+    pre.insert(To, {.storage = {{0x01_bytes32, 0x01_bytes32}}, .code = sstore(2, sload(1))});
 
     expect.post[To].storage[0x01_bytes32] = 0x01_bytes32;
     expect.post[To].storage[0x02_bytes32] = 0x01_bytes32;
