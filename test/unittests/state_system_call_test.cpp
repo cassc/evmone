@@ -14,12 +14,12 @@ using namespace evmone::state;
 TEST(state_system_call, non_existient)
 {
     evmc::VM vm;
-    evmone::test::TestState ts;
-    State state{ts};
+    evmone::test::TestState state;
 
-    system_call(state, {}, EVMC_CANCUN, vm);
+    const auto diff = system_call(state, {}, EVMC_CANCUN, vm);
 
-    EXPECT_EQ(state.get_accounts().size(), 0);
+    EXPECT_EQ(diff.modified_accounts.size(), 0);
+    EXPECT_EQ(diff.modified_storage.size(), 0);
 }
 
 TEST(state_system_call, sstore_timestamp)
@@ -29,16 +29,16 @@ TEST(state_system_call, sstore_timestamp)
     evmc::VM vm{evmc_create_evmone()};
     const BlockInfo block{.number = 1, .timestamp = 404};
 
-    evmone::test::TestState ts;
-    State state{ts};
+    evmone::test::TestState state;
     state.insert(BeaconRootsAddress, {.code = sstore(OP_NUMBER, OP_TIMESTAMP)});
 
-    system_call(state, block, EVMC_CANCUN, vm);
+    const auto diff = system_call(state, block, EVMC_CANCUN, vm);
+    state.apply_diff(diff);
 
     ASSERT_EQ(state.get_accounts().size(), 1);
     EXPECT_EQ(state.get(BeaconRootsAddress).nonce, 0);
     EXPECT_EQ(state.get(BeaconRootsAddress).balance, 0);
     const auto& storage = state.get(BeaconRootsAddress).storage;
     ASSERT_EQ(storage.size(), 1);
-    EXPECT_EQ(storage.at(0x01_bytes32).current, 404);
+    EXPECT_EQ(storage.at(0x01_bytes32), 404);
 }
