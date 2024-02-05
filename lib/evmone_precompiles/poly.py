@@ -30,6 +30,8 @@ print(reminder([3,5,6,7,2], [1, 2, 1]))
 
 mul([4, 3], [5, 2], [1, 2, 1])
 
+
+print ("---------------")
 ##################################
 def reminder(a_coeffs, m_coeffs):
     r = [i for i in a_coeffs]
@@ -45,6 +47,7 @@ def reminder(a_coeffs, m_coeffs):
 print(reminder([3,5,6,7,2], [2, 1]))
 
 
+print ("---------------")
 ##################################
 def reminder(a_coeffs, m_coeffs, degree):
     r = [i for i in a_coeffs]
@@ -59,3 +62,20 @@ print(reminder([3,5,6,7,2], {0: 2, 1: 1}, 2))
 
 print(reminder([3,5,6,7,2], {0: 2, 2: 1}, 3))
 print(reminder([3,5,6,7,2], {2: 1, 0: 2}, 3))
+
+
+print ("---------------")
+##################################
+def reminder(a_coeffs, m_coeffs, degree):
+    r = [i for i in a_coeffs]
+
+    for i in range(len(r) - 1, degree - 1, -1):
+        for j in m_coeffs.keys():
+            r[i - j - 1] = r[i - j - 1] - r[i] * m_coeffs[j]
+            print(r)
+    return r[:degree]
+
+print(reminder([2,7,6,5,3], {0: 2, 1: 1}, 2))
+
+print(reminder([2,7,6,5,3], {0: 2, 2: 1}, 3))
+print(reminder([2,7,6,5,3], {2: 1, 0: 2}, 3))
