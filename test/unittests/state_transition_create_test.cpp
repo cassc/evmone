@@ -1034,3 +1034,53 @@ TEST_F(state_transition, create4_deploy_code_with_dataloadn_invalid)
     expect.post[*tx.to].nonce = pre.get(*tx.to).nonce;  // CREATE caller's nonce must not be bumped
     expect.post[*tx.to].storage[0x01_bytes32] = 0x00_bytes32;  // CREATE must fail
 }
+
+TEST_F(state_transition, create_nested_in_create4)
+{
+    rev = EVMC_PRAGUE;
+    const auto deploy_container = eof_bytecode(OP_STOP);
+
+    const auto init_code = bytecode{OP_DATASIZE} + OP_PUSH0 + OP_PUSH0 + OP_DATACOPY +
+                           create().input(0, OP_DATASIZE) + returncontract(0, 0, 0);
+    const bytes init_container =
+        eof_bytecode(init_code, 3).container(deploy_container).data(deploy_container);
+
+    tx.type = Transaction::Type::initcodes;
+    tx.initcodes.push_back(init_container);
+
+    const auto factory_code =
+        create4().initcode(keccak256(init_container)).salt(Salt) + push(1) + OP_SSTORE + OP_STOP;
+    const auto factory_container = eof_bytecode(factory_code, 5);
+
+    tx.to = To;
+    pre.insert(*tx.to, {.nonce = 1, .code = factory_container});
+
+    expect.post[tx.sender].nonce = pre.get(tx.sender).nonce + 1;
+    expect.post[*tx.to].nonce = pre.get(*tx.to).nonce;
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x00_bytes32;
+}
+
+TEST_F(state_transition, create2_nested_in_create4)
+{
+    rev = EVMC_PRAGUE;
+    const auto deploy_container = eof_bytecode(OP_INVALID);
+
+    const auto init_code = bytecode{OP_DATASIZE} + OP_PUSH0 + OP_PUSH0 + OP_DATACOPY +
+                           create2().input(0, OP_DATASIZE).salt(Salt) + returncontract(0, 0, 0);
+    const bytes init_container =
+        eof_bytecode(init_code, 4).container(deploy_container).data(deploy_container);
+
+    tx.type = Transaction::Type::initcodes;
+    tx.initcodes.push_back(init_container);
+
+    const auto factory_code = create4().initcode(keccak256(init_container)).input(0, 0).salt(Salt) +
+                              push(1) + OP_SSTORE + OP_STOP;
+    const auto factory_container = eof_bytecode(factory_code, 5);
+
+    tx.to = To;
+    pre.insert(*tx.to, {.nonce = 1, .code = factory_container});
+
+    expect.post[tx.sender].nonce = pre.get(tx.sender).nonce + 1;
+    expect.post[*tx.to].nonce = pre.get(*tx.to).nonce;
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x00_bytes32;
+}
