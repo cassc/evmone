@@ -83,32 +83,21 @@ class MPTNode
     bytes m_value;
     std::unique_ptr<MPTNode> m_children[num_children];
 
-    explicit MPTNode(Kind kind, const Path& path, bytes&& value = {}) noexcept
-      : m_kind{kind}, m_path{path}, m_value{std::move(value)}
-    {}
-
     /// Creates a branch node out of two children and an optional extended path.
-    static MPTNode branch(const Path& path, size_t idx1, std::unique_ptr<MPTNode> child1,
-        size_t idx2, std::unique_ptr<MPTNode> child2) noexcept
+    MPTNode(const Path& path, size_t idx1, MPTNode&& child1, size_t idx2, MPTNode&& child2) noexcept
+      : m_kind{Kind::branch}, m_path{path}
     {
         assert(idx1 != idx2);
         assert(idx1 < num_children);
         assert(idx2 < num_children);
 
-        MPTNode br{Kind::branch, path};
-        br.m_children[idx1] = std::move(child1);
-        br.m_children[idx2] = std::move(child2);
-        return br;
+        m_children[idx1] = std::make_unique<MPTNode>(std::move(child1));
+        m_children[idx2] = std::make_unique<MPTNode>(std::move(child2));
     }
 
 public:
-    MPTNode() = default;
-
     /// Creates new leaf node.
-    static std::unique_ptr<MPTNode> leaf(const Path& path, bytes&& value) noexcept
-    {
-        return std::make_unique<MPTNode>(MPTNode{Kind::leaf, path, std::move(value)});
-    }
+    MPTNode(const Path& path, bytes&& value) noexcept : m_path{path}, m_value{std::move(value)} {}
 
     void insert(const Path& path, bytes&& value);
 
@@ -155,7 +144,7 @@ void MPTNode::insert(const Path& path, bytes&& value)  // NOLINT(misc-no-recursi
         if (auto& child = m_children[*insert_idx_it]; child)
             child->insert(insert_tail, std::move(value));  // ①
         else
-            child = leaf(insert_tail, std::move(value));  // ②
+            child = std::make_unique<MPTNode>(insert_tail, std::move(value));  // ②
     }
     else  // ③: Shorten path of this node and insert it to the new branch node.
     {
@@ -164,8 +153,8 @@ void MPTNode::insert(const Path& path, bytes&& value)  // NOLINT(misc-no-recursi
         const Path this_node_tail{this_idx_it + 1, m_path.end()};
         auto this_node = std::move(*this);  // invalidates this_idx_it
         this_node.m_path = this_node_tail;
-        *this = branch(extended_path, this_idx, std::make_unique<MPTNode>(std::move(this_node)),
-            *insert_idx_it, leaf(insert_tail, std::move(value)));
+        *this = MPTNode(extended_path, this_idx, std::move(this_node), *insert_idx_it,
+            MPTNode{insert_tail, std::move(value)});
     }
 }
 
@@ -210,7 +199,7 @@ void MPT::insert(bytes_view key, bytes&& value)
     const Path path{key};
 
     if (m_root == nullptr)
-        m_root = MPTNode::leaf(path, std::move(value));
+        m_root = std::make_unique<MPTNode>(path, std::move(value));
     else
         m_root->insert(path, std::move(value));
 }
