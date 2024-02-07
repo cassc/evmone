@@ -159,10 +159,12 @@ void MPTNode::insert(const Path& path, bytes&& value)  // NOLINT(misc-no-recursi
     }
     else  // ③: Shorten path of this node and insert it to the new branch node.
     {
-        const Path extended_path{m_path.begin(), this_idx_it};
         const auto this_idx = *this_idx_it;
-        m_path = Path{this_idx_it + 1, m_path.end()};  // shorten this path, invalidates this_idx_it
-        *this = branch(extended_path, this_idx, std::make_unique<MPTNode>(std::move(*this)),
+        const Path extended_path{m_path.begin(), this_idx_it};
+        const Path this_node_tail{this_idx_it + 1, m_path.end()};
+        auto this_node = std::move(*this);  // invalidates this_idx_it
+        this_node.m_path = this_node_tail;
+        *this = branch(extended_path, this_idx, std::make_unique<MPTNode>(std::move(this_node)),
             *insert_idx_it, leaf(insert_tail, std::move(value)));
     }
 }
