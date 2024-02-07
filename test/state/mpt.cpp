@@ -76,20 +76,18 @@ public:
 /// The MPT Node.
 class MPTNode
 {
-    static constexpr size_t num_children = 16;
-
     Kind m_kind = Kind::leaf;
     Path m_path;
     bytes m_value;
-    std::unique_ptr<MPTNode> m_children[num_children];
+    std::unique_ptr<MPTNode> m_children[16];
 
     /// Creates a branch node out of two children and an optional extended path.
     MPTNode(const Path& path, size_t idx1, MPTNode&& child1, size_t idx2, MPTNode&& child2) noexcept
       : m_kind{Kind::branch}, m_path{path}
     {
         assert(idx1 != idx2);
-        assert(idx1 < num_children);
-        assert(idx2 < num_children);
+        assert(idx1 < std::size(m_children));
+        assert(idx2 < std::size(m_children));
 
         m_children[idx1] = std::make_unique<MPTNode>(std::move(child1));
         m_children[idx2] = std::make_unique<MPTNode>(std::move(child2));
@@ -195,7 +193,7 @@ MPT::~MPT() noexcept = default;
 
 void MPT::insert(bytes_view key, bytes&& value)
 {
-    assert(key.size() <= Path::capacity() / 2);  // must fit the path impl. length limit
+    assert(key.size() <= Path::capacity() / 2);  // must fit the path implementation length limit
     const Path path{key};
 
     if (m_root == nullptr)
