@@ -40,8 +40,8 @@ public:
 
 void state_transition::TearDown()
 {
+    validate_state(pre, rev);
     auto state = pre.to_intra_state();
-    validate_state(state, rev);
     const auto trace = !expect.trace.empty();
     auto& selected_vm = trace ? tracing_vm : vm;
 
