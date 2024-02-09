@@ -126,7 +126,7 @@ template <typename FieldConfigT>
 std::ostream& operator<<(std::ostream& out, const FieldElem<FieldConfigT>& a)
 {
     for (const auto& c : a.coeffs)
-        out << hex(c) << ", ";
+        out << hex(Fp.from_mont(c)) << ", ";
 
     out << std::endl;
 
@@ -164,7 +164,8 @@ using Fq6FieldNaive = FieldElem<Fq2Config>;
 struct Fq6Field
 {
     static constexpr std::array<std::pair<uint8_t, Fq2Field>, 1> m_coeffs = {
-        {{0, Fq2Field({9_u256, 1_u256})}}};
+        {{0, Fq2Field({0x12ceb58a394e07d28f0d12384840918c6843fb439555fa7b461a4448976f7d50_u256,
+                 0x2259d6b14729c0fa51e1a247090812318d087f6872aabf4f68c3488912edefaa_u256})}}};
     std::array<Fq2Field, 3> coeffs;
 
     static inline constexpr Fq6Field mul(const Fq6Field& e1, const Fq6Field& e2) noexcept
@@ -220,11 +221,15 @@ std::ostream& operator<<(std::ostream& out, const Fq6Field& a)
 bool pairing([[maybe_unused]] const std::vector<Point>& pG1,
     [[maybe_unused]] const std::vector<Point>& pG2) noexcept
 {
+    auto r = FieldElem<Fq2Config>({Fp.to_mont(3), Fp.to_mont(4)}) * FieldElem<Fq2Config>({Fp.to_mont(2), Fp.to_mont(5)});
+    std::cout << r << std::endl;
+
     std::cout << m6n;
     std::cout << m6;
 
 
-    std::cout << hex(Fp.sub(0, Fp.to_mont(9)));
+    std::cout << hex(Fp.sub(0, Fp.to_mont(9))) << std::endl;
+    std::cout << hex(Fp.sub(0, Fp.to_mont(1))) << std::endl;
 
     return false;
 }
