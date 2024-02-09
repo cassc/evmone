@@ -776,8 +776,8 @@ P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59
 Q1 = Point(FQ2([0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678, 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7]), FQ2([0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550, 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d]), FQ2.one())
 
 # print (Q1)
-# tQ1 = untwist(Q1)
-# print(tQ1)
+tQ1 = untwist(Q1)
+print(tQ1)
 #
 # r = tQ1.x * tQ1.x * tQ1.x
 # print (r)
