@@ -82,6 +82,7 @@
 N = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
 R = 0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
 
+
 # num_mul = 0
 # red_mul_fq2 = 0
 # red_mul_fq6 = 0
@@ -125,6 +126,11 @@ class FP:
     def __neg__(self):
         return self.__class__(-self.value)
 
+    def __truediv__(self, other):
+        on = other.value if isinstance(other, FP) else other
+        assert isinstance(on, (int))
+        return FP(self.value * prime_field_inv(on, N))
+
 
 class FQ2:
     FIELD_COEFFS = {0: FP(1)}
@@ -162,7 +168,7 @@ class FQ2:
         for i in range(len(r) - 1, cls.DEGREE - 1, -1):
             d = i - cls.DEGREE
             for j in cls.FIELD_COEFFS.keys():
-                #red_mul_fq2 = red_mul_fq2 + 1
+                # red_mul_fq2 = red_mul_fq2 + 1
                 r[d + j] = r[d + j] - r[i] * cls.FIELD_COEFFS[j]
 
         return FQ2(r[:cls.DEGREE])
@@ -209,6 +215,16 @@ class FQ2:
 
     def deg(self):
         return 1 if self.coeffs[1] != 0 else 0
+
+    def __pow__(self, other):
+        o = self.__class__.one()
+        t = self
+        while other > 0:
+            if other & 1:
+                o = o * t
+            other >>= 1
+            t = t * t
+        return o
 
 
 class FQ6:
@@ -339,8 +355,8 @@ def prime_field_inv(a, n):
     lm, hm = 1, 0
     low, high = a % n, n
     while low > 1:
-        r = high//low
-        nm, new = hm-lm*r, high-low*r
+        r = high // low
+        nm, new = hm - lm * r, high - low * r
         lm, low, hm, high = nm, new, lm, low
     return lm % n
 
@@ -357,12 +373,12 @@ def poly_rounded_div(a, b):
     dega = deg(a)
     degb = deg(b)
     temp = [x for x in a]
-    o = [0 for x in a]
+    o = [FP(0) for x in a]
     for i in range(dega - degb, -1, -1):
-        o[i] = (o[i] + temp[degb + i] * prime_field_inv(b[degb], N))
+        o[i] = (o[i] + temp[degb + i] * FP(prime_field_inv(b[degb].value, N)))
         for c in range(degb + 1):
             temp[c + i] = (temp[c + i] - o[c])
-    return [x % N for x in o[:deg(o)+1]]
+    return [x for x in o[:deg(o) + 1]]
 
 
 class FQ12:
@@ -458,22 +474,48 @@ class FQ12:
 
     # Extended euclidean algorithm used to find the modular inverse
     def inv(self):
-        lm, hm = [1] + [0] * self.degree, [0] * (self.degree + 1)
-        low, high = self.coeffs + [0], self.modulus_coeffs + [1]
+        FQ12_modulus_coeffs = [82, 0, 0, 0, 0, 0, -18, 0, 0, 0, 0, 0]
+        FQ12_modulus_coeffs = [FP(c) for c in FQ12_modulus_coeffs]
+
+        p12 = self.get_12_degree_poly()
+        degree = 12
+        lm, hm = [FP(1)] + [FP(0)] * degree, [FP(0)] * (degree + 1)
+        low, high = p12 + [FP(0)], FQ12_modulus_coeffs + [FP(1)]
         while deg(low):
             r = poly_rounded_div(high, low)
-            r += [0] * (self.degree + 1 - len(r))
+            r += [FP(0)] * (degree + 1 - len(r))
             nm = [x for x in hm]
             new = [x for x in high]
             # assert len(lm) == len(hm) == len(low) == len(high) == len(nm) == len(new) == self.degree + 1
-            for i in range(self.degree + 1):
-                for j in range(self.degree + 1 - i):
-                    nm[i+j] -= lm[i] * r[j]
-                    new[i+j] -= low[i] * r[j]
-            nm = [x % N for x in nm]
-            new = [x % N for x in new]
+            for i in range(degree + 1):
+                for j in range(degree + 1 - i):
+                    nm[i + j] -= lm[i] * r[j]
+                    new[i + j] -= low[i] * r[j]
+            # nm = [x % N for x in nm]
+            # new = [x % N for x in new]
             lm, low, hm, high = nm, new, lm, low
-        return self.__class__(lm[:self.degree]) / low[0]
+
+        return FQ12.from_12_degree_poly([c / low[0] for c in lm[:degree]])
+        # return self.__class__(lm[:degree]) / low[0]
+
+    def get_12_degree_poly(self):
+        r = [0] * 12
+
+        for i, c in enumerate(self.coeffs):
+            for j, c2 in enumerate(c.coeffs):
+                r[i + j * 2] = c2.coeffs[0] - 9 * c2.coeffs[1]
+                r[i + j * 2 + 6] = c2.coeffs[1]
+
+        return r
+
+    @classmethod
+    def from_12_degree_poly(cls, p):
+        assert (len(p) == 12)
+
+        x = FQ6([FQ2([p[0] + 9 * p[6], p[6]]), FQ2([p[2] + 9 * p[8], p[8]]), FQ2([p[4] + 9 * p[10], p[10]])])
+        y = FQ6([FQ2([p[1] + 9 * p[7], p[7]]), FQ2([p[3] + 9 * p[9], p[9]]), FQ2([p[5] + 9 * p[11], p[11]])])
+
+        return FQ12([x, y])
 
 
 class FQ12N:
@@ -509,6 +551,53 @@ class FQ12N:
         return self.__str__()
 
 
+class FQ12_6:
+    FIELD_COEFFS = {0: FQ2([FP(0), FP(-1)])}
+    DEGREE = 6
+
+    def __init__(self, coeffs):
+        assert len(coeffs) == self.DEGREE
+        self.coeffs = coeffs
+
+    def mul(cls, a, b):
+        r = [FQ2([0, 0])] * (cls.DEGREE * 2 - 1)
+        for j in range(cls.DEGREE):
+            for i in range(cls.DEGREE):
+                r[i + j] = r[i + j] + a.coeffs[i] * b.coeffs[j]
+
+        # print(r)
+
+        for i in range(len(r) - 1, cls.DEGREE - 1, -1):
+            d = i - cls.DEGREE
+            for j in cls.FIELD_COEFFS.keys():
+                r[d + j] = r[d + j] - r[i] * cls.FIELD_COEFFS[j]
+
+        return FQ12_6(r[:cls.DEGREE])
+
+    def __pow__(self, other):
+        o = self.__class__.one()
+        t = self
+        while other > 0:
+            if other & 1:
+                o = o * t
+            other >>= 1
+            t = t * t
+        return o
+
+    def __mul__(self, other):
+        return self.mul(self, other)
+
+    def __str__(self):
+        return str([c for c in self.coeffs])
+
+    def __repr__(self):
+        return self.__str__()
+
+    @classmethod
+    def one(cls):
+        return FQ12_6([FQ2.one(), FQ2.zero(), FQ2.zero(), FQ2.zero(), FQ2.zero(), FQ2.zero()])
+
+
 # x = FQ6([FQ2([FP(1), FP(2)]), FQ2([FP(3), FP(4)]), FQ2([FP(5), FP(6)])])
 # print(x)
 # y = FQ6([FQ2([FP(7), FP(8)]), FQ2([FP(9), FP(10)]), FQ2([FP(11), FP(12)])])
@@ -541,9 +630,81 @@ class FQ12N:
 # x = FQ12([FQ6([FQ2([FP(1), FP(2)]), FQ2([FP(3), FP(4)]), FQ2([FP(5), FP(6)])]),
 #           FQ6([FQ2([FP(7), FP(8)]), FQ2([FP(9), FP(10)]), FQ2([FP(11), FP(12)])])])
 # print(x)
-# y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)])]),
-#           FQ6([FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])])
-# print(y)
+y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)])]),
+          FQ6([FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])])
+print(y)
+print(y.inv())
+
+print(y * y.inv())
+
+print(y.get_12_degree_poly())
+
+print(FQ12.from_12_degree_poly(y.get_12_degree_poly()))
+
+
+def conjugate(f):
+    return f.__class__([f.coeffs[0], -f.coeffs[1]])
+
+
+def fp12_pow_N(f: FQ12_6):
+    l = [FQ2([FP(0), FP(1)]) ** (i * (N - 1) // 6) for i in range(1, 6)]
+
+    r = FQ12_6([conjugate(f.coeffs[0]), conjugate(f.coeffs[1]) * l[0],
+                   conjugate(f.coeffs[2]) * l[1], conjugate(f.coeffs[3]) * l[2],
+                   conjugate(f.coeffs[4]) * l[3], conjugate(f.coeffs[5]) * l[4]])
+
+    # W = FQ12_6([FQ2.zero(), FQ2.one(), FQ2.zero(), FQ2.zero(), FQ2.zero(), FQ2.zero()])
+    #
+    # r = FQ12_6([conjugate(f.coeffs[0]), conjugate(f.coeffs[1]) * (W ** (N-1)),
+    #             conjugate(f.coeffs[2]) * (W ** (2*N-2)), conjugate(f.coeffs[3]) * (W ** (3*N-3)),
+    #             conjugate(f.coeffs[4]) * (W ** (4*N-4)), conjugate(f.coeffs[5]) * (W ** (5*N-5))])
+
+
+    # for i, c in enumerate(r.coeffs):
+    #     r.coeffs[i] = FQ2([c.coeffs[0] - 9 * c.coeffs[1], c.coeffs[1]])
+
+    return r
+
+    # g = FQ6([conjugate(f.coeffs[0].coeffs[0]), conjugate(f.coeffs[0].coeffs[1]) * l[1], conjugate(f.coeffs[0].coeffs[2]) * l[3]])
+    # h = FQ6([conjugate(f.coeffs[1].coeffs[0]) * l[0], conjugate(f.coeffs[1].coeffs[1]) * l[2], conjugate(f.coeffs[1].coeffs[2]) * l[4]])
+
+
+
+    # return FQ12([g, h])
+
+
+y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)])]),
+          FQ6([FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])])
+print(y)
+print(y.inv())
+
+print(y * y.inv())
+
+print(y.get_12_degree_poly())
+
+print(FQ12.from_12_degree_poly(y.get_12_degree_poly()))
+
+print((N - 1) % 6)
+
+
+y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(17), FP(18)]), FQ2([FP(21), FP(22)])]),
+          FQ6([FQ2([FP(15), FP(16)]), FQ2([FP(19), FP(20)]), FQ2([FP(23), FP(24)])])])
+
+print(y ** N)
+
+y = FQ12_6(
+    [FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)]),
+     FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])
+
+print(y)
+p12 = fp12_pow_N(y)
+
+print(p12)
+print(y ** N)
+
+print((FQ2([FP(13), FP(14)]) ** (N * N * N)))
+
+
 #
 # # num_mul = 0
 # # red_mul_fq2 = 0
@@ -613,6 +774,8 @@ class Point:
 w2 = FQ12([FQ6([FQ2([0, 0]), FQ2([1, 0]), FQ2([0, 0])]), FQ6([FQ2([0, 0]), FQ2([0, 0]), FQ2([0, 0])])])
 #
 w3 = FQ12([FQ6([FQ2([0, 0]), FQ2([0, 0]), FQ2([0, 0])]), FQ6([FQ2([0, 0]), FQ2([1, 0]), FQ2([0, 0])])])
+
+
 # w3 = w * w * w
 # w3 = w2 * w
 # print(w3 * w3)
@@ -654,7 +817,6 @@ def linear_func(P1: Point, P2: Point, T: Point):
         return n * (T.x * P1.z - T.z * P1.x) - d * (T.y * P1.z - P1.y * T.z), d * T.z * P1.z
     else:
         return T.x * P1.z - P1.x * T.z, T.z * P1.z
-
 
 
 def double(pt):
@@ -711,17 +873,17 @@ def miller_loop(Q, P):
     f_num = FQ12.one()
     f_den = FQ12.one()
 
-    print (Q)
+    print(Q)
 
     for i in range(log_ate_loop_count, -1, -1):
-        print ("miller loop iter " + str(i))
+        print("miller loop iter " + str(i))
         _n, _d = linear_func(R, R, P)
         R = double(R)
         f_num = f_num * f_num * _n
         f_den = f_den * f_den * _d
 
-        print (f_num)
-        print (f_den)
+        print(f_num)
+        print(f_den)
 
         if ate_loop_count & (2 ** i):
             _n, _d = linear_func(R, Q, P)
@@ -729,8 +891,8 @@ def miller_loop(Q, P):
             f_num = f_num * _n
             f_den = f_den * _d
 
-    print (f_num)
-    print (f_den)
+    print(f_num)
+    print(f_den)
 
     Q1 = frobenius_endomophism(Q)
     nQ2 = -frobenius_endomophism(Q1)
@@ -745,8 +907,14 @@ def miller_loop(Q, P):
     return f_num * _n1 * _n2, f_den * _d1 * _d2
 
 
-def final_exp(f: FQ12):
+def final_exp_naive(f: FQ12):
     return f ** ((N ** 12 - 1) // R)
+
+
+def final_exp(f: FQ12):
+    f = FQ12([f.coeffs[0], -f.coeffs[1]]) * f.inv()  # easy 1
+
+    return f ** ((N ** 2 + 1) * (N ** 4 - N ** 2 + 1) // R)
 
 
 def cast_to_fq12(pt: Point):
@@ -766,14 +934,23 @@ def cast_to_fq12(pt: Point):
 
 
 def pairing(Q: Point, P: Point):
+    f_n, f_d = miller_loop(untwist(Q), cast_to_fq12(P))
 
-    f = miller_loop(untwist(Q), cast_to_fq12(P))
+    r = f_n * f_d.inv()
 
-    #return final_exp(f)
-    return f
+    nfr = final_exp_naive(r)
+    fr = final_exp(r)
 
-P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59), FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))
-Q1 = Point(FQ2([0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678, 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7]), FQ2([0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550, 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d]), FQ2.one())
+    assert nfr == fr
+    return fr
+
+
+P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59),
+           FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))
+Q1 = Point(FQ2([0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678,
+                0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7]),
+           FQ2([0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550,
+                0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d]), FQ2.one())
 
 # print (Q1)
 tQ1 = untwist(Q1)
@@ -782,6 +959,7 @@ print(tQ1)
 # r = tQ1.x * tQ1.x * tQ1.x
 # print (r)
 
+rrr = FQ2([3, 4]) * FQ2([1, 2])
 
 p = pairing(Q1, P1)
 print(p)
@@ -789,9 +967,10 @@ print(p)
 # Generator for curve over FQ
 G1 = Point(FP(1), FP(2), FP(1))
 # Generator for twisted curve over FQ2
-G2 = Point(FQ2([10857046999023057135944570762232829481370756359578518086990519993285655852781, 11559732032986387107991004021392285783925812861821192530917403151452391805634]),
-      FQ2([8495653923123431417604973247489272438418190587263600148770280649306958101930, 4082367875863433681332203403145435568316851327593401208105741076214120093531]), FQ2.one())
-
+G2 = Point(FQ2([10857046999023057135944570762232829481370756359578518086990519993285655852781,
+                11559732032986387107991004021392285783925812861821192530917403151452391805634]),
+           FQ2([8495653923123431417604973247489272438418190587263600148770280649306958101930,
+                4082367875863433681332203403145435568316851327593401208105741076214120093531]), FQ2.one())
 
 p = pairing(G2, G1)
 p_inv = pairing(G2, -G1)
