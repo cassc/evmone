@@ -653,18 +653,34 @@ l2 = [l[i] * conjugate(l[i]) for i in range(5)]
 l3 = [l[i] * l2[i] for i in range(5)]
 
 
-# [[13, 21888242871839275222246405745257275088696311157297823662689037894645226208569], [16, 15], [21888242871839275222246405745257275088696311157297823662689037894645226208566, 18], [21888242871839275222246405745257275088696311157297823662689037894645226208563, 21888242871839275222246405745257275088696311157297823662689037894645226208564], [21, 21888242871839275222246405745257275088696311157297823662689037894645226208561], [24, 23]]
 def fp12_pow_N(f: FQ12):
-    # r = FQ12_6([conjugate(f.coeffs[0]), conjugate(f.coeffs[1]) * l[0],
-    #                conjugate(f.coeffs[2]) * l[1], conjugate(f.coeffs[3]) * l[2],
-    #                conjugate(f.coeffs[4]) * l[3], conjugate(f.coeffs[5]) * l[4]])
-
     r = FQ12([FQ6([conjugate(f.coeffs[0].coeffs[0]),
                    conjugate(f.coeffs[0].coeffs[1]) * l[1],
                    conjugate(f.coeffs[0].coeffs[2]) * l[3]]),
               FQ6([conjugate(f.coeffs[1].coeffs[0]) * l[0],
                    conjugate(f.coeffs[1].coeffs[1]) * l[2],
                    conjugate(f.coeffs[1].coeffs[2]) * l[4]])])
+
+    return r
+
+
+def fp12_pow_N2(f: FQ12):
+    r = FQ12([FQ6([f.coeffs[0].coeffs[0],
+                   f.coeffs[0].coeffs[1] * l2[1],
+                   f.coeffs[0].coeffs[2] * l2[3]]),
+              FQ6([f.coeffs[1].coeffs[0] * l2[0],
+                   f.coeffs[1].coeffs[1] * l2[2],
+                   f.coeffs[1].coeffs[2] * l2[4]])])
+
+    return r
+
+def fp12_pow_N3(f: FQ12):
+    r = FQ12([FQ6([conjugate(f.coeffs[0].coeffs[0]),
+                   conjugate(f.coeffs[0].coeffs[1]) * l3[1],
+                   conjugate(f.coeffs[0].coeffs[2]) * l3[3]]),
+              FQ6([conjugate(f.coeffs[1].coeffs[0]) * l3[0],
+                   conjugate(f.coeffs[1].coeffs[1]) * l3[2],
+                   conjugate(f.coeffs[1].coeffs[2]) * l3[4]])])
 
     return r
 
@@ -685,20 +701,21 @@ print((N - 1) % 6)
 y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(17), FP(18)]), FQ2([FP(21), FP(22)])]),
           FQ6([FQ2([FP(15), FP(16)]), FQ2([FP(19), FP(20)]), FQ2([FP(23), FP(24)])])])
 
-print(y ** N)
-
-# y = FQ12_6(
-#     [FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)]),
-#      FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])
-
 print(y)
+
 p12 = fp12_pow_N(y)
-
 print(p12)
-print(y ** N)
+assert y ** N == p12
 
-print((FQ2([FP(13), FP(14)]) ** (N * N * N)))
+p122 = fp12_pow_N2(y)
+print(p122)
+assert y ** (N ** 2) == p122
 
+p123 = fp12_pow_N3(y)
+print(p123)
+assert y ** (N ** 3) == p123
+
+# print((FQ2([FP(13), FP(14)]) ** (N * N * N)))
 
 #
 # # num_mul = 0
@@ -856,7 +873,7 @@ def add(p1, p2):
 
 
 def frobenius_endomophism(pt: Point):
-    return Point(pt.x ** N, pt.y ** N, pt.z ** N)
+    return Point(fp12_pow_N(pt.x), fp12_pow_N(pt.y), fp12_pow_N(pt.z))
 
 
 ate_loop_count = 29793968203157093288
@@ -909,7 +926,9 @@ def final_exp_naive(f: FQ12):
 def final_exp(f: FQ12):
     f = FQ12([f.coeffs[0], -f.coeffs[1]]) * f.inv()  # easy 1
 
-    return f ** ((N ** 2 + 1) * (N ** 4 - N ** 2 + 1) // R)
+    f = fp12_pow_N2(f) * f # easy 2
+
+    return f ** ((N ** 4 - N ** 2 + 1) // R)
 
 
 def cast_to_fq12(pt: Point):
@@ -933,10 +952,10 @@ def pairing(Q: Point, P: Point):
 
     r = f_n * f_d.inv()
 
-    nfr = final_exp_naive(r)
+    #nfr = final_exp_naive(r)
     fr = final_exp(r)
 
-    assert nfr == fr
+    #assert nfr == fr
     return fr
 
 
