@@ -645,6 +645,7 @@ print(FQ12.from_12_degree_poly(y.get_12_degree_poly()))
 def conjugate(f):
     return f.__class__([f.coeffs[0], -f.coeffs[1]])
 
+
 l = [FQ2([FP(9), FP(1)]) ** (i * (N - 1) // 6) for i in range(1, 6)]
 
 l2 = [l[i] * conjugate(l[i]) for i in range(5)]
@@ -652,10 +653,18 @@ l2 = [l[i] * conjugate(l[i]) for i in range(5)]
 l3 = [l[i] * l2[i] for i in range(5)]
 
 
-def fp12_pow_N(f: FQ12_6):
-    r = FQ12_6([conjugate(f.coeffs[0]), conjugate(f.coeffs[1]) * l[0],
-                   conjugate(f.coeffs[2]) * l[1], conjugate(f.coeffs[3]) * l[2],
-                   conjugate(f.coeffs[4]) * l[3], conjugate(f.coeffs[5]) * l[4]])
+# [[13, 21888242871839275222246405745257275088696311157297823662689037894645226208569], [16, 15], [21888242871839275222246405745257275088696311157297823662689037894645226208566, 18], [21888242871839275222246405745257275088696311157297823662689037894645226208563, 21888242871839275222246405745257275088696311157297823662689037894645226208564], [21, 21888242871839275222246405745257275088696311157297823662689037894645226208561], [24, 23]]
+def fp12_pow_N(f: FQ12):
+    # r = FQ12_6([conjugate(f.coeffs[0]), conjugate(f.coeffs[1]) * l[0],
+    #                conjugate(f.coeffs[2]) * l[1], conjugate(f.coeffs[3]) * l[2],
+    #                conjugate(f.coeffs[4]) * l[3], conjugate(f.coeffs[5]) * l[4]])
+
+    r = FQ12([FQ6([conjugate(f.coeffs[0].coeffs[0]),
+                   conjugate(f.coeffs[0].coeffs[1]) * l[1],
+                   conjugate(f.coeffs[0].coeffs[2]) * l[3]]),
+              FQ6([conjugate(f.coeffs[1].coeffs[0]) * l[0],
+                   conjugate(f.coeffs[1].coeffs[1]) * l[2],
+                   conjugate(f.coeffs[1].coeffs[2]) * l[4]])])
 
     return r
 
@@ -673,15 +682,14 @@ print(FQ12.from_12_degree_poly(y.get_12_degree_poly()))
 
 print((N - 1) % 6)
 
-
 y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(17), FP(18)]), FQ2([FP(21), FP(22)])]),
           FQ6([FQ2([FP(15), FP(16)]), FQ2([FP(19), FP(20)]), FQ2([FP(23), FP(24)])])])
 
 print(y ** N)
 
-y = FQ12_6(
-    [FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)]),
-     FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])
+# y = FQ12_6(
+#     [FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)]),
+#      FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])
 
 print(y)
 p12 = fp12_pow_N(y)
