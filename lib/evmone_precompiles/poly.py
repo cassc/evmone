@@ -647,7 +647,7 @@ def conjugate(f):
 
 
 def fp12_pow_N(f: FQ12_6):
-    l = [FQ2([FP(0), FP(1)]) ** (i * (N - 1) // 6) for i in range(1, 6)]
+    l = [FQ2([FP(9), FP(1)]) ** (i * (N - 1) // 6) for i in range(1, 6)]
 
     r = FQ12_6([conjugate(f.coeffs[0]), conjugate(f.coeffs[1]) * l[0],
                    conjugate(f.coeffs[2]) * l[1], conjugate(f.coeffs[3]) * l[2],
