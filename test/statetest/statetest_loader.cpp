@@ -448,15 +448,11 @@ void validate_state(const state::State& state, evmc_revision rev)
         //       https://github.com/ethereum/tests/issues/1331
         if (is_eof_container(acc.code))
         {
-            if (rev >= EVMC_PRAGUE)
+            if (const auto result = validate_eof(rev, acc.code);
+                result != EOFValidationError::success)
             {
-                if (const auto result = validate_eof(rev, acc.code);
-                    result != EOFValidationError::success)
-                {
-                    throw std::invalid_argument(
-                        "EOF container at " + hex0x(addr) +
-                        " is invalid: " + std::string(get_error_message(result)));
-                }
+                throw std::invalid_argument("EOF container at " + hex0x(addr) + " is invalid: " +
+                                            std::string(get_error_message(result)));
             }
         }
 
