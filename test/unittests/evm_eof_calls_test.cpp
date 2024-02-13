@@ -19,9 +19,9 @@ TEST_P(evm, eof1_delegatecall_eof1)
     host.call_result.gas_left = 100;
     host.call_result.status_code = EVMC_SUCCESS;
 
-    const auto code = eof_bytecode(delegatecall(callee) + OP_RETURNDATASIZE + OP_PUSH0 + OP_PUSH0 +
+    const auto code = eof_bytecode(delegatecall2(callee) + OP_RETURNDATASIZE + OP_PUSH0 + OP_PUSH0 +
                                        OP_RETURNDATACOPY + ret(0, evmone::OP_RETURNDATASIZE),
-        6);
+        4);
 
     execute(code);
     EXPECT_STATUS(EVMC_SUCCESS);
@@ -39,10 +39,10 @@ TEST_P(evm, eof1_delegatecall_legacy)
         SCOPED_TRACE("target code: " + hex(target_code));
         host.accounts[callee].code = target_code;
 
-        const auto code = eof_bytecode(delegatecall(callee) + ret_top(), 6);
+        const auto code = eof_bytecode(delegatecall2(callee) + ret_top(), 3);
 
         execute(code);
-        EXPECT_GAS_USED(EVMC_SUCCESS, 133);  // Low gas usage because DELEGATECALL fails lightly.
+        EXPECT_GAS_USED(EVMC_SUCCESS, 124);  // Low gas usage because DELEGATECALL2 fails lightly.
         EXPECT_OUTPUT_INT(0);
     }
 }
