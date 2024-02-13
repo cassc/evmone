@@ -435,25 +435,23 @@ static inline Fq6 inv(const Fq6& f)
 
     const Fq2& ksi = Fq6Config::COEFFS[0].second;
 
-    auto t0 = a0 * a0;
-    auto t1 = a1 * a1;
-    auto t2 = a2 * a2;
+    const auto t0 = a0 * a0;
+    const auto t1 = a1 * a1;
+    const auto t2 = a2 * a2;
 
-    auto t3 = a0 * a1;
-    auto t4 = a0 * a2;
-    auto t5 = a2 * a1;
+    const auto t3 = a0 * a1;
+    const auto t4 = a0 * a2;
+    const auto t5 = a2 * a1;
 
-    auto v0 = t0 + ksi * t5;
-    auto v1 = -ksi * t2 - t3;
-    auto v2 = t1 - t4;
+    const auto v0 = t0 + ksi * t5;
+    const auto v1 = -ksi * t2 - t3;
+    const auto v2 = t1 - t4;
 
-    auto c0 = a0 * v0;
-    auto c1 = -(a1 * v2 * ksi);
-    auto c2 = -(a2 * v1 * ksi);
+    const auto c0 = a0 * v0;
+    const auto c1 = -(a1 * v2);
+    const auto c2 = -(a2 * v1);
 
-    auto t = c0 + c1 + c2;
-    t = inv(t);
-
+    const auto t = inv(c0 + (c1 + c2) * ksi);
 
     return Fq6({v0 * t, v1 * t, v2 * t});
 }
