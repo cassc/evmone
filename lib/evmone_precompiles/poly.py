@@ -81,6 +81,7 @@
 
 N = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
 R = 0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
+T = 4965661367192848881
 
 
 # num_mul = 0
@@ -885,8 +886,6 @@ def miller_loop(Q, P):
     f_num = FQ12.one()
     f_den = FQ12.one()
 
-    print(Q)
-
     for i in range(log_ate_loop_count, -1, -1):
         print("miller loop iter " + str(i))
         _n, _d = linear_func(R, R, P)
@@ -903,14 +902,8 @@ def miller_loop(Q, P):
             f_num = f_num * _n
             f_den = f_den * _d
 
-    print(f_num)
-    print(f_den)
-
     Q1 = frobenius_endomophism(Q)
     nQ2 = -frobenius_endomophism(Q1)
-
-    print(Q1)
-    print(nQ2)
 
     _n1, _d1 = linear_func(R, Q1, P)
     R = add(R, Q1)
@@ -923,12 +916,45 @@ def final_exp_naive(f: FQ12):
     return f ** ((N ** 12 - 1) // R)
 
 
-def final_exp(f: FQ12):
-    f = FQ12([f.coeffs[0], -f.coeffs[1]]) * f.inv()  # easy 1
 
+def final_exp(f: FQ12):
+    f1 = conjugate(f)
+
+    f2 = f.inv()
+
+    f = f1 * f2  # easy 1
     f = fp12_pow_N2(f) * f # easy 2
 
-    return f ** ((N ** 4 - N ** 2 + 1) // R)
+    f1 = conjugate(f)
+
+    ft1 = f ** T
+    ft2 = ft1 ** T
+    ft3 = ft2 ** T
+    fp1 = fp12_pow_N(f)
+    fp2 = fp12_pow_N2(f)
+    fp3 = fp12_pow_N3(f)
+    y0 = fp1 * fp2 * fp3
+    y1 = f1
+    y2 = fp12_pow_N2(ft2)
+    y3 = fp12_pow_N(ft1)
+
+    y3 = conjugate(y3)
+    y4 = fp12_pow_N(ft2) * ft1
+
+    y4 = conjugate(y4)
+    y5 = conjugate(ft2)
+
+
+    y6 = fp12_pow_N(ft3) * ft3
+    y6 = conjugate(y6)
+    t0 = (y6 ** 2) * y4 * y5
+    t1 = y3 * y5 * t0
+    t0 = t0 * y2
+    t1 = ((t1**2) * t0) ** 2
+    t0 = t1 * y1
+    t1 = t1 * y0
+    t0 = t0**2
+    return t1 * t0
 
 
 def cast_to_fq12(pt: Point):
@@ -952,10 +978,8 @@ def pairing(Q: Point, P: Point):
 
     r = f_n * f_d.inv()
 
-    #nfr = final_exp_naive(r)
     fr = final_exp(r)
 
-    #assert nfr == fr
     return fr
 
 
