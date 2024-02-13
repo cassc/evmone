@@ -466,10 +466,10 @@ static inline Fq12 inv(const Fq12& f)
 
     const Fq6& gamma = Fq12Config::COEFFS[0].second;
 
-    t0 = t0 - gamma * t1;
+    t0 = t0 + gamma * t1;
     t1 = inv(t0);
     const auto c0 = a0 * t1;
-    const auto c1 = -a1 * t1;
+    const auto c1 = -(a1 * t1);
 
     return Fq12({c0, c1});
 }
@@ -826,6 +826,21 @@ bool pairing(const std::vector<Point>&, const std::vector<Point>&) noexcept
     std::cout << t1.to_string() << std::endl;
     std::cout << inv(t1).to_string() << std::endl;
     std::cout << (inv(t1) * t1).to_string() << std::endl;
+
+    const auto t3 = Fq6({
+        make_fq2(0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678_u256,
+            0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7_u256),
+        make_fq2(0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550_u256,
+            0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d_u256),
+        make_fq2(0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550_u256,
+            0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d_u256),
+    });
+
+    Fq12 t4{{t1, t3}};
+
+    std::cout << t4.to_string() << std::endl;
+    std::cout << inv(t4).to_string() << std::endl;
+    std::cout << (inv(t4) * t4).to_string() << std::endl;
 
 
     auto n = Fq12::one();
