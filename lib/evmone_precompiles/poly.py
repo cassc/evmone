@@ -653,6 +653,10 @@ l2 = [l[i] * conjugate(l[i]) for i in range(5)]
 
 l3 = [l[i] * l2[i] for i in range(5)]
 
+print(l)
+print(l2)
+print(l3)
+
 
 def fp12_pow_N(f: FQ12):
     r = FQ12([FQ6([conjugate(f.coeffs[0].coeffs[0]),
