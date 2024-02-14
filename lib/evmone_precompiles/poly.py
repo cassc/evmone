@@ -110,7 +110,7 @@ class FP:
         return FP(self.value - other.value)
 
     def __str__(self):
-        return str(self.value)
+        return hex(self.value)
 
     def __repr__(self):
         return self.__str__()
@@ -838,7 +838,11 @@ def linear_func(P1: Point, P2: Point, T: Point):
 
 def double(pt):
     x, y, z = pt.x, pt.y, pt.z
-    W = 3 * x * x
+    print(pt)
+    W = x * x
+    print(W)
+    W = W * 3
+    print(W)
     S = y * z
     B = x * y * S
     H = W * W - 8 * B
@@ -890,28 +894,43 @@ def miller_loop(Q, P):
     f_num = FQ12.one()
     f_den = FQ12.one()
 
+
     for i in range(log_ate_loop_count, -1, -1):
-        print("miller loop iter " + str(i))
         _n, _d = linear_func(R, R, P)
         R = double(R)
         f_num = f_num * f_num * _n
         f_den = f_den * f_den * _d
 
+        print(R)
         print(f_num)
         print(f_den)
 
         if ate_loop_count & (2 ** i):
             _n, _d = linear_func(R, Q, P)
+            print(_n)
+            print(_d)
             R = add(R, Q)
+            print(R)
             f_num = f_num * _n
             f_den = f_den * _d
+
+        print(f_num)
+        print(f_den)
+
+
 
     Q1 = frobenius_endomophism(Q)
     nQ2 = -frobenius_endomophism(Q1)
 
+    print(Q1)
+    print(nQ2)
+
     _n1, _d1 = linear_func(R, Q1, P)
     R = add(R, Q1)
     _n2, _d2 = linear_func(R, nQ2, P)
+
+    print(f_num)
+    print(f_den)
 
     return f_num * _n1 * _n2, f_den * _d1 * _d2
 
@@ -980,12 +999,25 @@ def cast_to_fq12(pt: Point):
 def pairing(Q: Point, P: Point):
     f_n, f_d = miller_loop(untwist(Q), cast_to_fq12(P))
 
+    print(f_n)
+    print(f_d)
+
     r = f_n * f_d.inv()
 
     fr = final_exp(r)
 
     return fr
 
+
+P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59),
+           FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))
+Q1 = Point(FQ2([0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7,
+                0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678]),
+           FQ2([0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d,
+                0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550]), FQ2.one())
+
+p = pairing(Q1, P1)
+print(p)
 
 P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59),
            FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))

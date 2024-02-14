@@ -174,6 +174,11 @@ inline constexpr Fq12 make_fq12(
 
 namespace constants
 {
+static inline auto _2 = Fq(2).to_mont().value;
+static inline auto _3 = Fq(3).to_mont().value;
+static inline auto _4 = Fq(4).to_mont().value;
+static inline auto _8 = Fq(8).to_mont().value;
+
 static inline auto omega2 = make_fq12(
     {
         {

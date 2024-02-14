@@ -50,22 +50,38 @@ inline constexpr std::pair<Fq12, Fq12> miller_loop(
     auto f_num = Fq12::one();
     auto f_den = Fq12::one();
 
+    std::cout << Q << std::endl;
+    std::cout << P << std::endl;
+
     for (int i = log_ate_loop_count; i >= 0; --i)
     {
         auto [_n, _d] = linear_func(R, R, P);
         R = dbl(R);
+        std::cout << R << std::endl;
         f_num = f_num * f_num * _n;
         f_den = f_den * f_den * _d;
+        std::cout << f_num.to_string() << std::endl;
+        std::cout << f_den.to_string() << std::endl;
         if (ate_loop_count & (1 << i))
         {
             std::tie(_n, _d) = linear_func(R, Q, P);
+            std::cout << _n.to_string() << std::endl;
+            std::cout << _d.to_string() << std::endl;
             R = add(R, Q, B3);
+            std::cout << R << std::endl;
             f_num = f_num * _n;
             f_den = f_den * _d;
         }
     }
+
+    std::cout << f_num.to_string() << std::endl;
+    std::cout << f_den.to_string() << std::endl;
+
     const auto Q1 = frobenius_endomophism(Q);
     const auto nQ2 = -frobenius_endomophism(Q1);
+
+    std::cout << Q1 << std::endl;
+    std::cout << nQ2 << std::endl;
 
     const auto [_n1, _d1] = linear_func(R, Q1, P);
     R = add(R, Q1, B3);
@@ -129,8 +145,13 @@ bool pairing(const std::vector<std::array<uint256, 4>>& vG2, const std::vector<P
 
         const auto [_n, _d] = miller_loop(untwist(Q_proj), cast_to_fq12(P_proj));
 
+        std::cout << n.to_string() << std::endl;
+        std::cout << d.to_string() << std::endl;
+
         n = n * _n;
         d = d * _d;
+
+
     }
 
     const auto f = final_exp(n * d.inv());

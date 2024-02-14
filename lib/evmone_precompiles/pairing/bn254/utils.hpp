@@ -4,9 +4,20 @@
 #pragma once
 
 #include "fields.hpp"
+#include <iostream>
 
 namespace evmmax::bn254
 {
+template <typename ValueT>
+std::ostream& operator<<(std::ostream& out, const ecc::ProjPoint<ValueT>& p)
+{
+    out << "x: " + p.x.to_string() << std::endl;
+    out << "y: " + p.y.to_string() << std::endl;
+    out << "z: " + p.z.to_string() << std::endl;
+
+    return out;
+}
+
 template <int P>
 inline constexpr Fq12 frobenius_operator(const Fq12& f) noexcept
 {
@@ -32,14 +43,16 @@ inline constexpr ecc::ProjPoint<Fq12> frobenius_endomophism(const ecc::ProjPoint
 
 inline constexpr ecc::ProjPoint<Fq12> dbl(const ecc::ProjPoint<Fq12>& P) noexcept
 {
-    const auto W = 3 * P.x * P.x;
+    using namespace constants;
+    auto W = P.x * P.x;
+    W = _3 * W;
     const auto S = P.y * P.z;
     const auto B = P.x * P.y * S;
-    const auto H = W * W - 8 * B;
+    const auto H = W * W - _8 * B;
     const auto S_squared = S * S;
-    const auto newx = 2 * H * S;
-    const auto newy = W * (4 * B - H) - 8 * P.y * P.y * S_squared;
-    const auto newz = 8 * S * S_squared;
+    const auto newx = _2 * H * S;
+    const auto newy = W * (_4 * B - H) - _8 * P.y * P.y * S_squared;
+    const auto newz = _8 * S * S_squared;
     return {newx, newy, newz};
 }
 
@@ -101,6 +114,8 @@ inline constexpr ecc::ProjPoint<Fq12> add(
 inline constexpr std::pair<Fq12, Fq12> linear_func(const ecc::ProjPoint<Fq12>& P1,
     const ecc::ProjPoint<Fq12>& P2, const ecc::ProjPoint<Fq12>& T) noexcept
 {
+    using namespace constants;
+
     auto n = P2.y * P1.z - P1.y * P2.z;
     auto d = P2.x * P1.z - P1.x * P2.z;
 
@@ -108,8 +123,8 @@ inline constexpr std::pair<Fq12, Fq12> linear_func(const ecc::ProjPoint<Fq12>& P
         return {n * (T.x * P1.z - T.z * P1.x) - d * (T.y * P1.z - P1.y * T.z), d * T.z * P1.z};
     else if (n == Fq12::zero())
     {
-        n = 3 * P1.x * P1.x;
-        d = 2 * P1.y * P1.z;
+        n = _3 * P1.x * P1.x;
+        d = _2 * P1.y * P1.z;
         return {n * (T.x * P1.z - T.z * P1.x) - d * (T.y * P1.z - P1.y * T.z), d * T.z * P1.z};
     }
     else
