@@ -65,7 +65,7 @@ struct BaseFieldElem
         return inverse(*this);
     }
 
-    inline constexpr std::string to_string() const noexcept { return hex(Fp.from_mont(value)); }
+    inline constexpr std::string to_string() const noexcept { return "0x" + hex(Fp.from_mont(value)); }
 
     static inline constexpr BaseFieldElem one() noexcept { return BaseFieldConfigT::ONE; }
 

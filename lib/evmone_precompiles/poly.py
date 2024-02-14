@@ -631,16 +631,7 @@ class FQ12_6:
 # x = FQ12([FQ6([FQ2([FP(1), FP(2)]), FQ2([FP(3), FP(4)]), FQ2([FP(5), FP(6)])]),
 #           FQ6([FQ2([FP(7), FP(8)]), FQ2([FP(9), FP(10)]), FQ2([FP(11), FP(12)])])])
 # print(x)
-y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)])]),
-          FQ6([FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])])
-print(y)
-print(y.inv())
 
-print(y * y.inv())
-
-print(y.get_12_degree_poly())
-
-print(FQ12.from_12_degree_poly(y.get_12_degree_poly()))
 
 
 def conjugate(f):
@@ -653,9 +644,7 @@ l2 = [l[i] * conjugate(l[i]) for i in range(5)]
 
 l3 = [l[i] * l2[i] for i in range(5)]
 
-print(l)
-print(l2)
-print(l3)
+
 
 
 def fp12_pow_N(f: FQ12):
@@ -692,32 +681,23 @@ def fp12_pow_N3(f: FQ12):
 
 y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(15), FP(16)]), FQ2([FP(17), FP(18)])]),
           FQ6([FQ2([FP(19), FP(20)]), FQ2([FP(21), FP(22)]), FQ2([FP(23), FP(24)])])])
-print(y)
-print(y.inv())
 
-print(y * y.inv())
-
-print(y.get_12_degree_poly())
-
-print(FQ12.from_12_degree_poly(y.get_12_degree_poly()))
-
-print((N - 1) % 6)
 
 y = FQ12([FQ6([FQ2([FP(13), FP(14)]), FQ2([FP(17), FP(18)]), FQ2([FP(21), FP(22)])]),
           FQ6([FQ2([FP(15), FP(16)]), FQ2([FP(19), FP(20)]), FQ2([FP(23), FP(24)])])])
 
-print(y)
+
 
 p12 = fp12_pow_N(y)
-print(p12)
+
 assert y ** N == p12
 
 p122 = fp12_pow_N2(y)
-print(p122)
+
 assert y ** (N ** 2) == p122
 
 p123 = fp12_pow_N3(y)
-print(p123)
+
 assert y ** (N ** 3) == p123
 
 # print((FQ2([FP(13), FP(14)]) ** (N * N * N)))
@@ -814,12 +794,6 @@ def untwist(pt: Point):
     return Point(x * w2, y * w3, z)
 
 
-G2 = Point(FQ2([10857046999023057135944570762232829481370756359578518086990519993285655852781,
-                11559732032986387107991004021392285783925812861821192530917403151452391805634]),
-           FQ2([8495653923123431417604973247489272438418190587263600148770280649306958101930,
-                4082367875863433681332203403145435568316851327593401208105741076214120093531]), FQ2([1, 0]))
-
-
 def linear_func(P1: Point, P2: Point, T: Point):
     zero = P1.x.__class__.zero()
 
@@ -838,11 +812,8 @@ def linear_func(P1: Point, P2: Point, T: Point):
 
 def double(pt):
     x, y, z = pt.x, pt.y, pt.z
-    print(pt)
     W = x * x
-    print(W)
     W = W * 3
-    print(W)
     S = y * z
     B = x * y * S
     H = W * W - 8 * B
@@ -896,12 +867,15 @@ def miller_loop(Q, P):
 
 
     for i in range(log_ate_loop_count, -1, -1):
+        print(i)
         _n, _d = linear_func(R, R, P)
+        print(_n)
+        print(_d)
         R = double(R)
+        print(R)
         f_num = f_num * f_num * _n
         f_den = f_den * f_den * _d
 
-        print(R)
         print(f_num)
         print(f_den)
 
@@ -913,11 +887,12 @@ def miller_loop(Q, P):
             print(R)
             f_num = f_num * _n
             f_den = f_den * _d
+            print(f_num)
+            print(f_den)
 
-        print(f_num)
-        print(f_den)
 
-
+    print(f_num)
+    print(f_den)
 
     Q1 = frobenius_endomophism(Q)
     nQ2 = -frobenius_endomophism(Q1)
