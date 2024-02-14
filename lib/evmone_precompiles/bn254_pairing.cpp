@@ -10,8 +10,7 @@ namespace evmmax::bn254
 {
 namespace
 {
-constexpr inline ModArith<uint256> Fp{FieldPrime,
-    0x6d89f71cab8351f47ab1eff0a417ff6b5e71911d44501fbf32cfc5b538afa89_u256, 9786893198990664585u};
+inline ModArith<uint256> Fp{FieldPrime};
 
 template <int DEGREE>
 struct karatsuba
@@ -122,6 +121,8 @@ struct FieldElem<BaseFieldConfig>
     }
 
     static inline constexpr FieldElem zero() noexcept { return FieldElem(0); }
+
+    inline FieldElem to_mont() const { return FieldElem(Fp.to_mont(value)); }
 };
 
 using Base = FieldElem<BaseFieldConfig>;
@@ -142,9 +143,9 @@ struct FieldElem
 
     explicit constexpr FieldElem(CoeffArrT cs) noexcept : coeffs(cs) {}
 
-    static inline constexpr FieldElem conjugate(const FieldElem& e) noexcept
+    inline constexpr FieldElem conjugate() const noexcept
     {
-        CoeffArrT res = e.coeffs;
+        CoeffArrT res = this->coeffs;
 
         for (size_t i = 1; i < DEGREE; i += 2)
             res[i] = -res[i];
@@ -252,6 +253,29 @@ struct FieldElem
 
         return FieldElem(v);
     }
+
+    static inline constexpr FieldElem pow(const FieldElem& e, Base::ValueT p)
+    {
+        auto o = one();
+        auto t = e;
+        while (p > 0)
+        {
+            if (p & 1)
+                o = o * t;
+            p >>= 1;
+            t = t * t;
+        }
+        return t;
+    }
+
+    inline FieldElem to_mont() const
+    {
+        CoeffArrT ret;
+        for (size_t i = 0; i < DEGREE; ++i)
+            ret[i] = coeffs[i].to_mont();
+
+        return FieldElem(ret);
+    }
 };
 
 template <typename FieldElem>
@@ -295,6 +319,13 @@ inline constexpr FieldElem operator*(const uint256& s, const FieldElem& e) noexc
 {
     return FieldElem::mul(e, s);
 }
+
+template <typename FieldElem>
+inline constexpr FieldElem operator^(const FieldElem& e, const Base::ValueT& p) noexcept
+{
+    return FieldElem::pow(e, p);
+}
+
 
 template <typename ValueT>
 inline constexpr ecc::ProjPoint<ValueT> operator-(const ecc::ProjPoint<ValueT>& p) noexcept
@@ -358,58 +389,6 @@ struct Fq12Config
     };
 };
 using Fq12 = FieldElem<Fq12Config>;
-
-// static inline std::array<Base, 12> get_poly_coeffs(const Fq12& f)
-//{
-//     std::array<Base, 12> r = {};
-//
-//     for (size_t i = 0; i < 2; ++i)
-//     {
-//         for (size_t j = 0; j < 6; ++j)
-//         {
-//             const auto c2 = f.coeffs[i].coeffs[j];
-//             r[i + j * 2] = c2.coeffs[0] - 9 * c2.coeffs[1];
-//             r[i + j * 2 + 6] = c2.coeffs[1];
-//         }
-//     }
-//
-//     return r;
-// }
-
-// inline constexpr size_t deg(const std::array<Base, 13>& p)
-//{
-//     size_t d = 12;
-//     while (p[d].value == 0_u256 && d > 0)
-//         d -= 1;
-//
-//     return d;
-// }
-//
-// inline constexpr  poly_rounded_div(a, b):
-//     dega = deg(a)
-//     degb = deg(b)
-//     temp = [x for x in a]
-//     o = [FP(0) for x in a]
-//     for i in range(dega - degb, -1, -1):
-//         o[i] = (o[i] + temp[degb + i] * FP(prime_field_inv(b[degb].value, N)))
-//         for c in range(degb + 1):
-//             temp[c + i] = (temp[c + i] - o[c])
-//     return [x for x in o[:deg(o) + 1]]
-//
-// static inline std::array<Base, 12> FQ12_modulus_coeffs = {
-//     82_u256,
-//     0_u256,
-//     0_u256,
-//     0_u256,
-//     0_u256,
-//     0_u256,
-//     -18_u256,
-//     0_u256,
-//     0_u256,
-//     0_u256,
-//     0_u256,
-//     0_u256,
-// };
 
 static inline Fq2 inv(const Fq2& f)
 {
@@ -479,11 +458,6 @@ static inline Fq2 make_fq2(std::array<Base::ValueT, 2> a) noexcept
     return Fq2({Base(Fp.to_mont(a[0])), Base(Fp.to_mont(a[1]))});
 }
 
-static inline Fq2 make_fq2(const Base::ValueT& a, const Base::ValueT& b) noexcept
-{
-    return Fq2({Base(Fp.to_mont(a)), Base(Fp.to_mont(b))});
-}
-
 [[maybe_unused]] inline constexpr Fq6 make_fq6(std::array<Base::ValueT, 2> a,
     std::array<Base::ValueT, 2> b, std::array<Base::ValueT, 2> c) noexcept
 {
@@ -543,88 +517,88 @@ static inline auto omega3 = make_fq12(
         },
     });
 
-static inline std::array<Fq2, 5> FROB_L1 = {
-    make_fq2({
-        8376118865763821496583973867626364092589906065868298776909617916018768340080_u256,
-        16469823323077808223889137241176536799009286646108169935659301613961712198316_u256,
-    }),
-    make_fq2({
-        21575463638280843010398324269430826099269044274347216827212613867836435027261_u256,
-        10307601595873709700152284273816112264069230130616436755625194854815875713954_u256,
-    }),
-    make_fq2({
-        2821565182194536844548159561693502659359617185244120367078079554186484126554_u256,
-        3505843767911556378687030309984248845540243509899259641013678093033130930403_u256,
-    }),
-    make_fq2({
-        2581911344467009335267311115468803099551665605076196740867805258568234346338_u256,
-        19937756971775647987995932169929341994314640652964949448313374472400716661030_u256,
-    }),
-    make_fq2({
-        685108087231508774477564247770172212460312782337200605669322048753928464687_u256,
-        8447204650696766136447902020341177575205426561248465145919723016860428151883_u256,
-    }),
-};
-
-static inline std::array<Fq2, 5> FROB_L2 = {
-    make_fq2({
-        21888242871839275220042445260109153167277707414472061641714758635765020556617_u256,
-        0_u256,
-    }),
-    make_fq2({
-        21888242871839275220042445260109153167277707414472061641714758635765020556616_u256,
-        0_u256,
-    }),
-    make_fq2({
-        21888242871839275222246405745257275088696311157297823662689037894645226208582_u256,
-        0_u256,
-    }),
-    make_fq2({
-        2203960485148121921418603742825762020974279258880205651966_u256,
-        0_u256,
-    }),
-    make_fq2({
-        2203960485148121921418603742825762020974279258880205651967_u256,
-        0_u256,
-    }),
-};
-
-static inline std::array<Fq2, 5> FROB_L3 = {
-    make_fq2({
-        11697423496358154304825782922584725312912383441159505038794027105778954184319_u256,
-        303847389135065887422783454877609941456349188919719272345083954437860409601_u256,
-    }),
-    make_fq2({
-        3772000881919853776433695186713858239009073593817195771773381919316419345261_u256,
-        2236595495967245188281701248203181795121068902605861227855261137820944008926_u256,
-    }),
-    make_fq2({
-        19066677689644738377698246183563772429336693972053703295610958340458742082029_u256,
-        18382399103927718843559375435273026243156067647398564021675359801612095278180_u256,
-    }),
-    make_fq2({
-        5324479202449903542726783395506214481928257762400643279780343368557297135718_u256,
-        16208900380737693084919495127334387981393726419856888799917914180988844123039_u256,
-    }),
-    make_fq2({
-        8941241848238582420466759817324047081148088512956452953208002715982955420483_u256,
-        10338197737521362862238855242243140895517409139741313354160881284257516364953_u256,
-    }),
-};
+static inline std::array<std::array<Fq2, 5>, 3> FROBENIUS_COEFFS = {{
+    {
+        make_fq2({
+            8376118865763821496583973867626364092589906065868298776909617916018768340080_u256,
+            16469823323077808223889137241176536799009286646108169935659301613961712198316_u256,
+        }),
+        make_fq2({
+            21575463638280843010398324269430826099269044274347216827212613867836435027261_u256,
+            10307601595873709700152284273816112264069230130616436755625194854815875713954_u256,
+        }),
+        make_fq2({
+            2821565182194536844548159561693502659359617185244120367078079554186484126554_u256,
+            3505843767911556378687030309984248845540243509899259641013678093033130930403_u256,
+        }),
+        make_fq2({
+            2581911344467009335267311115468803099551665605076196740867805258568234346338_u256,
+            19937756971775647987995932169929341994314640652964949448313374472400716661030_u256,
+        }),
+        make_fq2({
+            685108087231508774477564247770172212460312782337200605669322048753928464687_u256,
+            8447204650696766136447902020341177575205426561248465145919723016860428151883_u256,
+        }),
+    },
+    {
+        make_fq2({
+            21888242871839275220042445260109153167277707414472061641714758635765020556617_u256,
+            0_u256,
+        }),
+        make_fq2({
+            21888242871839275220042445260109153167277707414472061641714758635765020556616_u256,
+            0_u256,
+        }),
+        make_fq2({
+            21888242871839275222246405745257275088696311157297823662689037894645226208582_u256,
+            0_u256,
+        }),
+        make_fq2({
+            2203960485148121921418603742825762020974279258880205651966_u256,
+            0_u256,
+        }),
+        make_fq2({
+            2203960485148121921418603742825762020974279258880205651967_u256,
+            0_u256,
+        }),
+    },
+    {
+        make_fq2({
+            11697423496358154304825782922584725312912383441159505038794027105778954184319_u256,
+            303847389135065887422783454877609941456349188919719272345083954437860409601_u256,
+        }),
+        make_fq2({
+            3772000881919853776433695186713858239009073593817195771773381919316419345261_u256,
+            2236595495967245188281701248203181795121068902605861227855261137820944008926_u256,
+        }),
+        make_fq2({
+            19066677689644738377698246183563772429336693972053703295610958340458742082029_u256,
+            18382399103927718843559375435273026243156067647398564021675359801612095278180_u256,
+        }),
+        make_fq2({
+            5324479202449903542726783395506214481928257762400643279780343368557297135718_u256,
+            16208900380737693084919495127334387981393726419856888799917914180988844123039_u256,
+        }),
+        make_fq2({
+            8941241848238582420466759817324047081148088512956452953208002715982955420483_u256,
+            10338197737521362862238855242243140895517409139741313354160881284257516364953_u256,
+        }),
+    },
+}};
 
 template <int P>
 inline constexpr Fq12 frobenius_operator(const Fq12& f) noexcept
 {
     return Fq12({
         Fq6({
-            Fq2::conjugate(f.coeffs[0].coeffs[0]),
-            Fq2::conjugate(f.coeffs[0].coeffs[1]) * FROB_L1[1],
-            Fq2::conjugate(f.coeffs[0].coeffs[2]) * FROB_L1[3],
+            f.coeffs[0].coeffs[0].conjugate(),
+            f.coeffs[0].coeffs[1].conjugate() * FROBENIUS_COEFFS[P - 1][1],
+            f.coeffs[0].coeffs[2].conjugate() * FROBENIUS_COEFFS[P - 1][3],
         }),
         Fq6({
-            Fq2::conjugate(f.coeffs[1].coeffs[0]) * FROB_L1[0],
-            Fq2::conjugate(f.coeffs[1].coeffs[1]) * FROB_L1[2],
-            Fq2::conjugate(f.coeffs[1].coeffs[2]) * FROB_L1[4],
+            f.coeffs[1].coeffs[0].conjugate() * FROBENIUS_COEFFS[P - 1][0],
+            f.coeffs[1].coeffs[1].conjugate() * FROBENIUS_COEFFS[P - 1][2],
+            f.coeffs[1].coeffs[2].conjugate() * FROBENIUS_COEFFS[P - 1][4],
         }),
     });
 }
@@ -746,20 +720,6 @@ inline constexpr std::pair<Fq12, Fq12> linear_func(const ecc::ProjPoint<Fq12>& P
         return {T.x * P1.z - P1.x * T.z, T.z * P1.z};
 }
 
-// inline constexpr Fq12 pow(const Fq12& v, uint256 p) noexcept
-//{
-//     auto o = Fq12::one();
-//     auto t = v;
-//     while (p > 0)
-//     {
-//         if (p & 1)
-//             o = o * t;
-//         p >>= 1;
-//         t = t * t;
-//     }
-//     return t;
-// }
-
 inline constexpr auto ate_loop_count = 29793968203157093288_u256;
 inline constexpr int log_ate_loop_count = 63;
 const auto B3 = make_fq12({{{3 * 3, 0}, {0, 0}, {0, 0}}}, {{{0, 0}, {1, 0}, {0, 0}}});
@@ -795,127 +755,69 @@ inline constexpr std::pair<Fq12, Fq12> miller_loop(
     return {f_num * _n1 * _n2, f_den * _d1 * _d2};
 }
 
+inline Fq12 final_exp(const Fq12& v) noexcept
+{
+    auto f = v;
+    auto f1 = f.conjugate();
+
+    f = f1 * inv(f);                   // easy 1
+    f = frobenius_operator<2>(f) * f;  // easy 2
+
+    f1 = f.conjugate();
+
+    const auto ft1 = f ^ X;
+    const auto ft2 = ft1 ^ X;
+    const auto ft3 = ft2 ^ X;
+    const auto fp1 = frobenius_operator<1>(f);
+    const auto fp2 = frobenius_operator<2>(f);
+    const auto fp3 = frobenius_operator<3>(f);
+    const auto y0 = fp1 * fp2 * fp3;
+    const auto y1 = f1;
+    const auto y2 = frobenius_operator<2>(ft2);
+    const auto y3 = frobenius_operator<1>(ft1).conjugate();
+    const auto y4 = (frobenius_operator<1>(ft2) * ft1).conjugate();
+    const auto y5 = ft2.conjugate();
+    const auto y6 = (frobenius_operator<1>(ft3) * ft3).conjugate();
+
+    auto t0 = (y6 ^ 2) * y4 * y5;
+    auto t1 = y3 * y5 * t0;
+    t0 = t0 * y2;
+    t1 = ((t1 ^ 2) * t0) ^ 2;
+    t0 = t1 * y1;
+    t1 = t1 * y0;
+    t0 = t0 ^ 2;
+    return t1 * t0;
+}
 }  // namespace
 
-bool pairing(const std::vector<Point>&, const std::vector<Point>&) noexcept
+bool pairing(const std::vector<std::array<uint256, 4>>& vG2, const std::vector<Point>& vG1) noexcept
 {
-    const auto t = make_fq2(0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678_u256,
-        0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7_u256);
+    if (vG1.size() != vG2.size())
+        return false;
 
-    std::cout << t.to_string() << std::endl;
-    std::cout << inv(t).to_string() << std::endl;
-    std::cout << (inv(t) * t).to_string() << std::endl;
-
-    const auto t2 = make_fq2(0xc446a57c71889fbfa5e03eddfe9c6d87971e59ae7af13a70085c93933db9766_u256,
-        0x300823b181f4271b67c83280632005deb3d87159ad6f31b839cffe33a822645a_u256);
-
-    std::cout << t2.to_string() << std::endl;
-    std::cout << inv(t2).to_string() << std::endl;
-    std::cout << (inv(t2) * t2).to_string() << std::endl;
-
-    const auto t1 = Fq6({
-        make_fq2(0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678_u256,
-            0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7_u256),
-        make_fq2(0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550_u256,
-            0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d_u256),
-        make_fq2(0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550_u256,
-            0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d_u256),
-    });
-
-
-    std::cout << t1.to_string() << std::endl;
-    std::cout << inv(t1).to_string() << std::endl;
-    std::cout << (inv(t1) * t1).to_string() << std::endl;
-
-    const auto t3 = Fq6({
-        make_fq2(0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678_u256,
-            0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7_u256),
-        make_fq2(0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550_u256,
-            0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d_u256),
-        make_fq2(0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550_u256,
-            0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d_u256),
-    });
-
-    Fq12 t4{{t1, t3}};
-
-    std::cout << t4.to_string() << std::endl;
-    std::cout << inv(t4).to_string() << std::endl;
-    std::cout << (inv(t4) * t4).to_string() << std::endl;
-
+    if (vG1.size() == 0)
+        return true;
 
     auto n = Fq12::one();
     auto d = Fq12::one();
 
+    for (size_t i = 0; i < vG2.size(); ++i)
+    {
+        const auto Q_proj = ecc::ProjPoint<Fq2>(Fq2({vG2[i][0], vG2[i][1]}).to_mont(),
+            Fq2({vG2[i][2], vG2[i][3]}).to_mont(), Fq2::one());
+        const auto P_proj =
+            ecc::ProjPoint<Base>(Base(vG1[i].x).to_mont(), Base(vG1[i].y).to_mont(), Base::one());
 
-    //    for (size_t i = 0; i < pG1.size(); ++i)
-    //    {
-    //        const auto proj_pG1 = ecc::ProjPoint<Base>(
-    //            Base(Fp.to_mont(pG1[i].x)), Base(Fp.to_mont(pG1[i].y)), Base(Fp.to_mont(1)));
-    //        const auto proj_pG2 = ecc::ProjPoint<Fq2>(
-    //            Fq2({Base(pG2[i].x), Base(0)}), Fq2({Base(pG2[i].y), Base(0)}), Fq2::one());
-    //
-    //        const auto [_n, _d] = miller_loop(untwist(proj_pG2), cast_to_fq12(proj_pG1));
-    //
-    //        n = n * _n;
-    //        d = d * _d;
-    //    }
+        const auto [_n, _d] = miller_loop(untwist(Q_proj), cast_to_fq12(P_proj));
 
-    //    std::cout << n.to_string() << std::endl;
-    //    std::cout << d.to_string() << std::endl;
+        n = n * _n;
+        d = d * _d;
+    }
 
-    std::cout << (n * inv(d)).to_string() << std::endl;
+    const auto f = final_exp(n * inv(d));
 
-    ecc::ProjPoint<Fq2> Q1 = {
-        .x = make_fq2(0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678_u256,
-            0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7_u256),
-        .y = make_fq2(0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550_u256,
-            0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d_u256),
-        .z = Fq2::one(),
+    std::cout << f.to_string() << std::endl;
 
-    };
-
-    std::cout << Q1 << std::endl;
-
-    const auto uQ1 = untwist(Q1);
-    std::cout << uQ1 << std::endl;
-
-    ecc::ProjPoint<Base> P1 = {
-        .x = Base(
-            Fp.to_mont(0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678_u256)),
-        .y = Base(
-            Fp.to_mont(0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550_u256)),
-        .z = Base::one(),
-    };
-
-    const auto [_n, _d] = miller_loop(untwist(Q1), cast_to_fq12(P1));
-
-    n = n * _n;
-    d = d * _d;
-
-    std::cout << (n * inv(d)).to_string() << std::endl;
-    const auto P = cast_to_fq12(P1);
-    std::cout << P << std::endl;
-
-    //    auto r2 = Fq2({Base(Fp.to_mont(3)), Base(Fp.to_mont(4))}) *
-    //              Fq2({Base(Fp.to_mont(2)), Base(Fp.to_mont(5))});
-    //
-    //    std::cout << r2.to_string() << std::endl;
-    //
-    //    std::cout << hex(Fp.sub(0, Fp.to_mont(9))) << std::endl;
-    //    std::cout << hex(Fp.sub(0, Fp.to_mont(1))) << std::endl;
-    //    std::cout << hex(Fp.to_mont(1)) << std::endl;
-    //
-    //
-    //    auto r6 = Fq6({r2, r2, r2}) * Fq6({r2, r2, r2});
-    //
-    //    std::cout << r6.to_string() << std::endl;
-    //
-    //    auto r12 = Fq12({r6, r6}) * Fq12({r6, r6});
-    //
-    //    std::cout << r12.to_string() << std::endl;
-
-    return false;
+    return f == Fq12::one();
 }
-
-
 }  // namespace evmmax::bn254

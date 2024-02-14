@@ -17,6 +17,9 @@ inline constexpr auto FieldPrime =
 inline constexpr auto Order =
     0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001_u256;
 
+// The bn254 curve X parameter
+inline constexpr auto X = 4965661367192848881;
+
 using Point = ecc::Point<uint256>;
 
 /// Validates that point is from the bn254 curve group
@@ -40,6 +43,7 @@ Point add(const Point& pt1, const Point& pt2) noexcept;
 /// Computes [c]P for a point in affine coordinate on the bn254 curve,
 Point mul(const Point& pt, const uint256& c) noexcept;
 
-bool pairing(const std::vector<Point>& pG1, const std::vector<Point>& pG2) noexcept;
+bool pairing(
+    const std::vector<std::array<uint256, 4>>& vG2, const std::vector<Point>& vG1) noexcept;
 
 }  // namespace evmmax::bn254
