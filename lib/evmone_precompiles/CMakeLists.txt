@@ -11,7 +11,6 @@ target_sources(
     bn254.hpp
     bn254.cpp
     ecc.hpp
-    pairing/bn254/constants.hpp
     pairing/bn254/fields.hpp
     pairing/bn254/pairing.cpp
     pairing/field_template.hpp
