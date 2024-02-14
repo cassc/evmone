@@ -5,12 +5,18 @@
 add_library(evmone_precompiles STATIC)
 add_library(evmone::precompiles ALIAS evmone_precompiles)
 target_link_libraries(evmone_precompiles PUBLIC evmc::evmc_cpp PRIVATE evmone::evmmax)
+
 target_sources(
     evmone_precompiles PRIVATE
     bn254.hpp
     bn254.cpp
-    bn254_pairing.cpp
     ecc.hpp
+    pairing/bn254/constants.hpp
+    pairing/bn254/fields.hpp
+    pairing/bn254/pairing.cpp
+    pairing/field_template.hpp
+    pairing/utils.hpp
     secp256k1.cpp
     secp256k1.hpp
+
 )
