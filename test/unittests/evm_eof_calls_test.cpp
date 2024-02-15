@@ -260,38 +260,26 @@ TEST_P(evm, call2_output)
     }
 }
 
-// TEST_P(evm, call_high_gas)
-// {
-//     rev = EVMC_HOMESTEAD;
-//     host.accounts[0xaa_address] = {};
+TEST_P(evm, call2_value_zero_to_nonexistent_account)
+{
+    constexpr auto call_gas = 6000;
+    host.call_result.gas_left = 1000;
 
-//     for (auto call_opcode : {OP_CALL, OP_CALLCODE, OP_DELEGATECALL})
-//     {
-//         execute(5000, 5 * push(0) + push(0xaa) + push(0x134c) + call_opcode);
-//         EXPECT_EQ(result.status_code, EVMC_OUT_OF_GAS);
-//     }
-// }
+    const auto code = push(0x40) + push(0) + push(0x40) + push(0) + push(0) + push(0xaa) +
+                      push(call_gas) + OP_CALL2 + OP_POP;
 
-// TEST_P(evm, call_value_zero_to_nonexistent_account)
-// {
-//     constexpr auto call_gas = 6000;
-//     host.call_result.gas_left = 1000;
-
-//     const auto code = push(0x40) + push(0) + push(0x40) + push(0) + push(0) + push(0xaa) +
-//                       push(call_gas) + OP_CALL + OP_POP;
-
-//     execute(9000, code);
-//     EXPECT_EQ(gas_used, 729 + (call_gas - host.call_result.gas_left));
-//     EXPECT_EQ(result.status_code, EVMC_SUCCESS);
-//     ASSERT_EQ(host.recorded_calls.size(), 1);
-//     const auto& call_msg = host.recorded_calls.back();
-//     EXPECT_EQ(call_msg.kind, EVMC_CALL);
-//     EXPECT_EQ(call_msg.depth, 1);
-//     EXPECT_EQ(call_msg.gas, 6000);
-//     EXPECT_EQ(call_msg.input_size, 64);
-//     EXPECT_EQ(call_msg.recipient, 0x00000000000000000000000000000000000000aa_address);
-//     EXPECT_EQ(call_msg.value.bytes[31], 0);
-// }
+    execute(9000, code);
+    EXPECT_EQ(gas_used, 729 + (call_gas - host.call_result.gas_left));
+    EXPECT_EQ(result.status_code, EVMC_SUCCESS);
+    ASSERT_EQ(host.recorded_calls.size(), 1);
+    const auto& call_msg = host.recorded_calls.back();
+    EXPECT_EQ(call_msg.kind, EVMC_CALL);
+    EXPECT_EQ(call_msg.depth, 1);
+    EXPECT_EQ(call_msg.gas, 6000);
+    EXPECT_EQ(call_msg.input_size, 64);
+    EXPECT_EQ(call_msg.recipient, 0x00000000000000000000000000000000000000aa_address);
+    EXPECT_EQ(call_msg.value.bytes[31], 0);
+}
 
 // TEST_P(evm, call_new_account_creation_cost)
 // {
