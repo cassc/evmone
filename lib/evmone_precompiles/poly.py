@@ -132,6 +132,14 @@ class FP:
         assert isinstance(on, (int))
         return FP(self.value * prime_field_inv(on, N))
 
+    @classmethod
+    def one(cls):
+        return cls(1)
+
+    @classmethod
+    def zero(cls):
+        return cls(0)
+
 
 class FQ2:
     FIELD_COEFFS = {0: FP(1)}
@@ -173,6 +181,31 @@ class FQ2:
                 r[d + j] = r[d + j] - r[i] * cls.FIELD_COEFFS[j]
 
         return FQ2(r[:cls.DEGREE])
+
+    def inv(self):
+        FQ2_modulus_coeffs = [1, 0]
+        FQ2_modulus_coeffs = [FP(c) for c in FQ2_modulus_coeffs]
+
+        p12 = self.coeffs
+        degree = 2
+        lm, hm = [FP(1)] + [FP(0)] * degree, [FP(0)] * (degree + 1)
+        low, high = p12 + [FP(0)], FQ2_modulus_coeffs + [FP(1)]
+        while deg(low):
+            r = poly_rounded_div(high, low)
+            r += [FP(0)] * (degree + 1 - len(r))
+            nm = [x for x in hm]
+            new = [x for x in high]
+            # assert len(lm) == len(hm) == len(low) == len(high) == len(nm) == len(new) == self.degree + 1
+            for i in range(degree + 1):
+                for j in range(degree + 1 - i):
+                    nm[i + j] -= lm[i] * r[j]
+                    new[i + j] -= low[i] * r[j]
+            # nm = [x % N for x in nm]
+            # new = [x % N for x in new]
+            lm, low, hm, high = nm, new, lm, low
+
+        return FQ2([c / low[0] for c in lm[:degree]])
+        # return self.__class__(lm[:degree]) / low[0]
 
     def __mul__(self, other):
         if isinstance(other, (int)):
@@ -1021,8 +1054,58 @@ P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59
 Q1 = Point(FQ2([0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678, 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7]), FQ2([0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550, 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d]), FQ2.one())
 
 
-p = pairing(Q1, P1)
-print(p)
+p1 = pairing(Q1, P1)
+# print(p1)
+#
+# P2 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59), FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))
+# Q2 = Point(FQ2([0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678, 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7]), -FQ2([0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550, 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d]), FQ2.one())
+#
+# print(P2)
+# print(Q2)
+# p2 = pairing(Q2, P2)
+
+
+def multiply(pt, n):
+    if n == 0:
+        return Point(pt[0].__class__.one(), pt[0].__class__.one(), pt[0].__class__.zero())
+    elif n == 1:
+        return pt
+    elif not n % 2:
+        return multiply(double(pt), n // 2)
+    else:
+        return add(multiply(double(pt), int(n // 2)), pt)
+
+
+
+P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59), FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))
+P1 = multiply(P1, 17)
+P1.x = P1.x / P1.z
+P1.y = P1.y / P1.z
+P1.z = P1.z / P1.z
+Q1 = Point(FQ2([0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678, 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7]), FQ2([0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550, 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d]), FQ2.one())
+
+print(P1)
+print(Q1)
+
+p1 = pairing(Q1, P1)
+
+P3 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59), FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))
+Q3 = Point(FQ2([0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678, 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7]), -FQ2([0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550, 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d]), FQ2.one())
+Q3 = multiply(Q3, 17)
+
+print(Q3)
+
+Q3.x = Q3.x * Q3.z.inv()
+Q3.y = Q3.y * Q3.z.inv()
+Q3.z = Q3.z * Q3.z.inv()
+
+print(P3)
+print(Q3)
+p2 = pairing(Q3, P3)
+
+
+
+print (p1 * p2)
 
 P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59),
            FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))

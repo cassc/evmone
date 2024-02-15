@@ -41,7 +41,7 @@ inline constexpr ecc::ProjPoint<Fq12> cast_to_fq12(const ecc::ProjPoint<Fq>& p) 
 
 inline constexpr auto ate_loop_count = 29793968203157093288_u256;
 inline constexpr int log_ate_loop_count = 63;
-const auto B3 = make_fq12({{{3 * 3, 0}, {0, 0}, {0, 0}}}, {{{0, 0}, {1, 0}, {0, 0}}});
+static inline const auto B3 = make_fq12({{{3 * 3, 0}, {0, 0}, {0, 0}}}, {{{0, 0}, {1, 0}, {0, 0}}});
 
 inline constexpr std::pair<Fq12, Fq12> miller_loop(
     const ecc::ProjPoint<Fq12>& Q, const ecc::ProjPoint<Fq12>& P) noexcept
