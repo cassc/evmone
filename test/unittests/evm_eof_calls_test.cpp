@@ -85,7 +85,7 @@ TEST_P(evm, delegatecall2)
 
     execute(1700, code);
 
-    auto gas_before_call = 3 + 2 + 3 + 3 + 6 + 3 + 3 + 3 + 100;
+    auto gas_before_call = 3 + 2 + 3 + 3 + 6 + 3 * 3 + 100;
     auto gas_left = 1700 - gas_before_call;
     ASSERT_EQ(host.recorded_calls.size(), 1);
     const auto& call_msg = host.recorded_calls.back();
@@ -139,7 +139,7 @@ TEST_P(evm, delegatecall2_oog_depth_limit)
 
     execute(1000, code);
     EXPECT_EQ(host.recorded_calls.size(), 0);
-    auto expected_gas_used = 3 + 3 + 3 + 100 + 3 + 3 + 3 + 3 + 3;
+    auto expected_gas_used = 3 * 3 + 100 + 3 + 3 + 3 + 3 + 3;
     EXPECT_GAS_USED(EVMC_SUCCESS, expected_gas_used);
     EXPECT_OUTPUT_INT(0);
 
@@ -306,23 +306,24 @@ TEST_P(evm, call2_value_zero_to_nonexistent_account)
     if (is_advanced())
         return;
 
-    constexpr auto call_gas = 6000;
+    rev = EVMC_PRAGUE;
     host.call_result.gas_left = 1000;
 
-    const auto code = push(0x40) + push(0) + push(0x40) + push(0) + push(0) + push(0xaa) +
-                      push(call_gas) + OP_CALL2 + OP_POP;
+    const auto code = eof_bytecode(call2(0xaa).input(0, 0x40) + OP_STOP, 4);
 
     execute(9000, code);
-    EXPECT_EQ(gas_used, 729 + (call_gas - host.call_result.gas_left));
-    EXPECT_EQ(result.status_code, EVMC_SUCCESS);
+    auto gas_before_call = 4 * 3 + 2 * 3 + 2600;
+    auto gas_left = 9000 - gas_before_call;
     ASSERT_EQ(host.recorded_calls.size(), 1);
     const auto& call_msg = host.recorded_calls.back();
     EXPECT_EQ(call_msg.kind, EVMC_CALL);
     EXPECT_EQ(call_msg.depth, 1);
-    EXPECT_EQ(call_msg.gas, 6000);
+    EXPECT_EQ(call_msg.gas, gas_left - gas_left / 64);
     EXPECT_EQ(call_msg.input_size, 64);
     EXPECT_EQ(call_msg.recipient, 0x00000000000000000000000000000000000000aa_address);
     EXPECT_EQ(call_msg.value.bytes[31], 0);
+
+    EXPECT_GAS_USED(EVMC_SUCCESS, gas_before_call + call_msg.gas - host.call_result.gas_left);
 }
 
 // TEST_P(evm, call_new_account_creation_cost)
