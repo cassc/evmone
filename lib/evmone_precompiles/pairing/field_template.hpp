@@ -220,7 +220,7 @@ struct FieldElem
             p >>= 1;
             t = t * t;
         }
-        return t;
+        return o;
     }
 
     inline constexpr FieldElem inv() noexcept

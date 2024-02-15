@@ -36,6 +36,24 @@ inline constexpr Fq12 frobenius_operator(const Fq12& f) noexcept
     });
 }
 
+template <>
+inline constexpr Fq12 frobenius_operator<2>(const Fq12& f) noexcept
+{
+    using namespace constants;
+    return Fq12({
+        Fq6({
+            f.coeffs[0].coeffs[0],
+            f.coeffs[0].coeffs[1] * FROBENIUS_COEFFS[1][1],
+            f.coeffs[0].coeffs[2] * FROBENIUS_COEFFS[1][3],
+        }),
+        Fq6({
+            f.coeffs[1].coeffs[0] * FROBENIUS_COEFFS[1][0],
+            f.coeffs[1].coeffs[1] * FROBENIUS_COEFFS[1][2],
+            f.coeffs[1].coeffs[2] * FROBENIUS_COEFFS[1][4],
+        }),
+    });
+}
+
 inline constexpr ecc::ProjPoint<Fq12> frobenius_endomophism(const ecc::ProjPoint<Fq12>& P) noexcept
 {
     return {frobenius_operator<1>(P.x), frobenius_operator<1>(P.y), frobenius_operator<1>(P.z)};

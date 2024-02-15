@@ -645,7 +645,9 @@ l2 = [l[i] * conjugate(l[i]) for i in range(5)]
 l3 = [l[i] * l2[i] for i in range(5)]
 
 
-
+print (l)
+print (l2)
+print (l3)
 
 def fp12_pow_N(f: FQ12):
     r = FQ12([FQ6([conjugate(f.coeffs[0].coeffs[0]),
@@ -916,6 +918,9 @@ def final_exp_naive(f: FQ12):
 
 
 def final_exp(f: FQ12):
+
+    print(f)
+
     f1 = conjugate(f)
 
     f2 = f.inv()
@@ -923,17 +928,26 @@ def final_exp(f: FQ12):
     f = f1 * f2  # easy 1
     f = fp12_pow_N2(f) * f # easy 2
 
+    print(f)
+
     f1 = conjugate(f)
 
     ft1 = f ** T
+    print(ft1)
     ft2 = ft1 ** T
+    print(ft2)
     ft3 = ft2 ** T
+    print(ft3)
     fp1 = fp12_pow_N(f)
+    print(fp1)
     fp2 = fp12_pow_N2(f)
+    print(fp2)
     fp3 = fp12_pow_N3(f)
+    print(fp3)
     y0 = fp1 * fp2 * fp3
     y1 = f1
     y2 = fp12_pow_N2(ft2)
+    print(y2)
     y3 = fp12_pow_N(ft1)
 
     y3 = conjugate(y3)
@@ -945,6 +959,15 @@ def final_exp(f: FQ12):
 
     y6 = fp12_pow_N(ft3) * ft3
     y6 = conjugate(y6)
+
+    print(y1)
+    print(y2)
+    print(y3)
+    print(y4)
+    print(y5)
+    print(y6)
+
+
     t0 = (y6 ** 2) * y4 * y5
     t1 = y3 * y5 * t0
     t0 = t0 * y2
@@ -980,6 +1003,9 @@ def pairing(Q: Point, P: Point):
     r = f_n * f_d.inv()
 
     fr = final_exp(r)
+    fr1 = final_exp_naive(r)
+
+    assert fr == fr1
 
     return fr
 
@@ -990,6 +1016,10 @@ Q1 = Point(FQ2([0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35b
                 0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678]),
            FQ2([0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d,
                 0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550]), FQ2.one())
+
+P1 = Point(FP(0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59), FP(0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41), FP(1))
+Q1 = Point(FQ2([0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678, 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7]), FQ2([0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550, 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d]), FQ2.one())
+
 
 p = pairing(Q1, P1)
 print(p)
