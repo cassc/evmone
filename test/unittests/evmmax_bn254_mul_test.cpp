@@ -4,7 +4,6 @@
 
 #include "../utils/utils.hpp"
 #include "evmone_precompiles/bn254.hpp"
-#include "evmone_precompiles/pairing/bn254/fields.hpp"
 #include <gtest/gtest.h>
 
 using namespace evmmax::bn254;
