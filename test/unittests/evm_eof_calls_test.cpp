@@ -326,81 +326,70 @@ TEST_P(evm, call2_value_zero_to_nonexistent_account)
     EXPECT_GAS_USED(EVMC_SUCCESS, gas_before_call + call_msg.gas - host.call_result.gas_left);
 }
 
-// TEST_P(evm, call_new_account_creation_cost)
-// {
-//     constexpr auto call_dst = 0x00000000000000000000000000000000000000ad_address;
-//     constexpr auto msg_dst = 0x0000000000000000000000000000000000000003_address;
-//     const auto code =
-//         4 * push(0) + calldataload(0) + push(call_dst) + push(0) + OP_CALL + ret_top();
-//     msg.recipient = msg_dst;
+TEST_P(evm, call2_new_account_creation_cost)
+{
+    // Not implemented in Advanced.
+    if (is_advanced())
+        return;
+    constexpr auto call_dst = 0x00000000000000000000000000000000000000ad_address;
+    // host.accounts[call_dst].code = eof_bytecode(OP_STOP);
+    constexpr auto msg_dst = 0x0000000000000000000000000000000000000003_address;
+    const auto code =
+        eof_bytecode(call2(call_dst).value(calldataload(0)).input(0, 0) + ret_top(), 4);
 
+    msg.recipient = msg_dst;
 
-//     rev = EVMC_TANGERINE_WHISTLE;
-//     host.accounts[msg.recipient].set_balance(0);
-//     execute(code, "00"_hex);
-//     EXPECT_GAS_USED(EVMC_SUCCESS, 25000 + 739);
-//     EXPECT_OUTPUT_INT(1);
-//     ASSERT_EQ(host.recorded_calls.size(), 1);
-//     EXPECT_EQ(host.recorded_calls.back().recipient, call_dst);
-//     EXPECT_EQ(host.recorded_calls.back().gas, 0);
-//     ASSERT_EQ(host.recorded_account_accesses.size(), 2);
-//     EXPECT_EQ(host.recorded_account_accesses[0], call_dst);  // Account exist?
-//     EXPECT_EQ(host.recorded_account_accesses[1], call_dst);  // Call.
-//     host.recorded_account_accesses.clear();
-//     host.recorded_calls.clear();
+    rev = EVMC_PRAGUE;
+    {
+        auto gas_before_call = 3 * 3 + 3 + 3 + 2600;
+        auto gas_left = 40000 - gas_before_call;
 
-//     rev = EVMC_TANGERINE_WHISTLE;
-//     host.accounts[msg.recipient].set_balance(1);
-//     execute(code, "0000000000000000000000000000000000000000000000000000000000000001"_hex);
-//     EXPECT_GAS_USED(EVMC_SUCCESS, 25000 + 9000 + 739);
-//     EXPECT_OUTPUT_INT(1);
-//     ASSERT_EQ(host.recorded_calls.size(), 1);
-//     EXPECT_EQ(host.recorded_calls.back().recipient, call_dst);
-//     EXPECT_EQ(host.recorded_calls.back().gas, 2300);
-//     EXPECT_EQ(host.recorded_calls.back().sender, msg_dst);
-//     EXPECT_EQ(host.recorded_calls.back().value.bytes[31], 1);
-//     EXPECT_EQ(host.recorded_calls.back().input_size, 0);
-//     ASSERT_EQ(host.recorded_account_accesses.size(), 3);
-//     EXPECT_EQ(host.recorded_account_accesses[0], call_dst);       // Account exist?
-//     EXPECT_EQ(host.recorded_account_accesses[1], msg.recipient);  // Balance.
-//     EXPECT_EQ(host.recorded_account_accesses[2], call_dst);       // Call.
-//     host.recorded_account_accesses.clear();
-//     host.recorded_calls.clear();
+        host.accounts[msg.recipient].set_balance(0);
+        execute(40000, code, "00"_hex);
+        EXPECT_OUTPUT_INT(0);
+        ASSERT_EQ(host.recorded_calls.size(), 1);
+        auto& call_msg = host.recorded_calls.back();
+        EXPECT_EQ(call_msg.recipient, call_dst);
+        EXPECT_EQ(call_msg.gas, gas_left - gas_left / 64);
+        EXPECT_EQ(call_msg.sender, msg_dst);
+        EXPECT_EQ(call_msg.value.bytes[31], 0);
+        EXPECT_EQ(call_msg.input_size, 0);
+        EXPECT_GAS_USED(EVMC_SUCCESS, gas_before_call + call_msg.gas + 3 + 3 + 3 + 3 + 3);
+        ASSERT_EQ(host.recorded_account_accesses.size(), 4);
+        EXPECT_EQ(host.recorded_account_accesses[0], 0x00_address);   // EIP-2929 tweak
+        EXPECT_EQ(host.recorded_account_accesses[1], msg.recipient);  // EIP-2929 tweak
+        EXPECT_EQ(host.recorded_account_accesses[2], call_dst);       // ?
+        EXPECT_EQ(host.recorded_account_accesses[3], call_dst);       // Call.
+        host.recorded_account_accesses.clear();
+        host.recorded_calls.clear();
+    }
+    {
+        auto gas_before_call = 3 * 3 + 3 + 3 + 2600 + 25000 + 9000;
+        auto gas_left = 40000 - gas_before_call;
 
-//     rev = EVMC_SPURIOUS_DRAGON;
-//     host.accounts[msg.recipient].set_balance(0);
-//     execute(code, "00"_hex);
-//     EXPECT_GAS_USED(EVMC_SUCCESS, 739);
-//     EXPECT_OUTPUT_INT(1);
-//     ASSERT_EQ(host.recorded_calls.size(), 1);
-//     EXPECT_EQ(host.recorded_calls.back().recipient, call_dst);
-//     EXPECT_EQ(host.recorded_calls.back().gas, 0);
-//     EXPECT_EQ(host.recorded_calls.back().sender, msg_dst);
-//     EXPECT_EQ(host.recorded_calls.back().value.bytes[31], 0);
-//     EXPECT_EQ(host.recorded_calls.back().input_size, 0);
-//     ASSERT_EQ(host.recorded_account_accesses.size(), 1);
-//     EXPECT_EQ(host.recorded_account_accesses[0], call_dst);  // Call.
-//     host.recorded_account_accesses.clear();
-//     host.recorded_calls.clear();
-
-//     rev = EVMC_SPURIOUS_DRAGON;
-//     host.accounts[msg.recipient].set_balance(1);
-//     execute(code, "0000000000000000000000000000000000000000000000000000000000000001"_hex);
-//     EXPECT_GAS_USED(EVMC_SUCCESS, 25000 + 9000 + 739);
-//     EXPECT_OUTPUT_INT(1);
-//     ASSERT_EQ(host.recorded_calls.size(), 1);
-//     EXPECT_EQ(host.recorded_calls.back().recipient, call_dst);
-//     EXPECT_EQ(host.recorded_calls.back().gas, 2300);
-//     EXPECT_EQ(host.recorded_calls.back().sender, msg_dst);
-//     EXPECT_EQ(host.recorded_calls.back().value.bytes[31], 1);
-//     EXPECT_EQ(host.recorded_calls.back().input_size, 0);
-//     ASSERT_EQ(host.recorded_account_accesses.size(), 3);
-//     EXPECT_EQ(host.recorded_account_accesses[0], call_dst);       // Account exist?
-//     EXPECT_EQ(host.recorded_account_accesses[1], msg.recipient);  // Balance.
-//     EXPECT_EQ(host.recorded_account_accesses[2], call_dst);       // Call.
-//     host.recorded_account_accesses.clear();
-//     host.recorded_calls.clear();
-// }
+        host.accounts[msg.recipient].set_balance(1);
+        execute(
+            40000, code, "0000000000000000000000000000000000000000000000000000000000000001"_hex);
+        EXPECT_OUTPUT_INT(0);
+        ASSERT_EQ(host.recorded_calls.size(), 1);
+        auto& call_msg = host.recorded_calls.back();
+        EXPECT_EQ(call_msg.recipient, call_dst);
+        EXPECT_EQ(call_msg.gas, gas_left - gas_left / 64);
+        EXPECT_EQ(call_msg.sender, msg_dst);
+        EXPECT_EQ(call_msg.value.bytes[31], 1);
+        EXPECT_EQ(call_msg.input_size, 0);
+        EXPECT_GAS_USED(EVMC_SUCCESS, gas_before_call + call_msg.gas + 3 + 3 + 3 + 3 + 3);
+        ASSERT_EQ(host.recorded_account_accesses.size(), 6);
+        EXPECT_EQ(host.recorded_account_accesses[0], 0x00_address);   // EIP-2929 tweak
+        EXPECT_EQ(host.recorded_account_accesses[1], msg.recipient);  // EIP-2929 tweak
+        EXPECT_EQ(host.recorded_account_accesses[2], call_dst);       // ?
+        EXPECT_EQ(host.recorded_account_accesses[3], call_dst);       // Account exist?.
+        EXPECT_EQ(host.recorded_account_accesses[4], msg.recipient);  // Balance.
+        EXPECT_EQ(host.recorded_account_accesses[5], call_dst);       // Call.
+        host.recorded_account_accesses.clear();
+        host.recorded_calls.clear();
+    }
+}
 
 // TEST_P(evm, callcode_new_account_create)
 // {
