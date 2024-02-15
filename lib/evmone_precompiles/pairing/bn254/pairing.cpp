@@ -6,7 +6,6 @@
 #include "evmmax/evmmax.hpp"
 #include "fields.hpp"
 #include "utils.hpp"
-#include <iostream>
 
 namespace evmmax::bn254
 {
