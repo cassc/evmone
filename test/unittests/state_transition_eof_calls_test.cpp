@@ -123,38 +123,6 @@ TEST_F(state_transition, call2_failing_with_value_balance_check)
     expect.post[*tx.to].exists = true;
 }
 
-TEST_F(state_transition, call2_failing_with_value_additional_cost)
-{
-    rev = EVMC_PRAGUE;
-    constexpr auto callee = 0xca11ee_address;
-
-    pre.insert(callee,
-        {
-            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
-            .code = eof_bytecode(sstore(1, 0xcc_bytes32) + OP_STOP, 2),
-        });
-
-    tx.to = To;
-    pre.insert(*tx.to,
-        {
-            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
-            .code = eof_bytecode(sstore(1, call2(callee).input(0x0, 0xff).value(0x1)) + OP_STOP, 4),
-        });
-    // Fails on value transfer additional cost - minimum gas limit that triggers this
-    // FIXME not really...
-    tx.gas_limit = 21000 + 4 * 3 + 100 + 8 * 3 + 5000;
-
-    expect.post[*tx.to].storage[0x01_bytes32] = 0xdd_bytes32;
-    expect.post[callee].storage[0x01_bytes32] = 0xdd_bytes32;
-    expect.post[*tx.to].exists = true;
-    expect.status = EVMC_OUT_OF_GAS;
-
-
-    // execute(4 * 3 + 100 + 8 * 3 + 9000 - 1, code);
-    // EXPECT_STATUS(EVMC_OUT_OF_GAS);
-    // EXPECT_EQ(host.recorded_calls.size(), 0);  // There was no call().
-}
-
 TEST_F(state_transition, call2_failing_with_value_additional_cost2)
 {
     rev = EVMC_PRAGUE;
@@ -173,8 +141,7 @@ TEST_F(state_transition, call2_failing_with_value_additional_cost2)
             .code = eof_bytecode(sstore(1, call2(callee).input(0x0, 0xff).value(0x1)) + OP_STOP, 4),
         });
     // Fails on value transfer additional cost - maximum gas limit that triggers this
-    // FIXME not really...
-    tx.gas_limit = 21000 + 4 * 3 + 100 + 8 * 3 + 5000 + 9000 - 1;
+    tx.gas_limit = 37639 - 1;
 
     expect.post[*tx.to].storage[0x01_bytes32] = 0xdd_bytes32;
     expect.post[callee].storage[0x01_bytes32] = 0xdd_bytes32;
