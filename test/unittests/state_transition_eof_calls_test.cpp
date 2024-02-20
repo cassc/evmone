@@ -120,10 +120,9 @@ TEST_F(state_transition, call2_failing_with_value_balance_check)
 
     expect.post[*tx.to].storage[0x01_bytes32] = 0x00_bytes32;
     expect.post[callee].storage[0x01_bytes32] = 0xdd_bytes32;
-    expect.post[*tx.to].exists = true;
 }
 
-TEST_F(state_transition, call2_failing_with_value_additional_cost2)
+TEST_F(state_transition, call2_failing_with_value_additional_cost)
 {
     rev = EVMC_PRAGUE;
     constexpr auto callee = 0xca11ee_address;
@@ -143,338 +142,251 @@ TEST_F(state_transition, call2_failing_with_value_additional_cost2)
     // Fails on value transfer additional cost - maximum gas limit that triggers this
     tx.gas_limit = 37639 - 1;
 
+    expect.gas_used = tx.gas_limit;
     expect.post[*tx.to].storage[0x01_bytes32] = 0xdd_bytes32;
     expect.post[callee].storage[0x01_bytes32] = 0xdd_bytes32;
-    expect.post[*tx.to].exists = true;
     expect.status = EVMC_OUT_OF_GAS;
 }
 
-// TEST_F(state_transition, call2_with_value)
-// {
-//     // Not implemented in Advanced.
-//     if (is_advanced())
-//         return;
+TEST_F(state_transition, call2_with_value)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-//     rev = EVMC_PRAGUE;
+    pre.insert(callee,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(sstore(1, 0xcc_bytes32) + OP_STOP, 2),
+        });
 
-//     constexpr auto call_sender = 0x5e4d00000000000000000000000000000000d4e5_address;
-//     constexpr auto call_dst = 0x00000000000000000000000000000000000000aa_address;
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .balance = 0x01,
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(sstore(1, call2(callee).input(0x0, 0xff).value(0x1)) + OP_STOP, 4),
+        });
+    expect.gas_used = 37845;
 
-//     const auto code = eof_bytecode(call2(call_dst).input(0x0, 0xff).value(0x1) + OP_STOP, 4);
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x00_bytes32;
+    expect.post[callee].storage[0x01_bytes32] = 0xcc_bytes32;
+}
 
-//     msg.recipient = call_sender;
-//     host.accounts[msg.recipient].set_balance(1);
-//     host.accounts[call_dst] = {};
-//     host.call_result.gas_left = 1;
+TEST_F(state_transition, call2_output)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-//     execute(40000, code);
+    pre.insert(callee, {
+                           .code = eof_bytecode(ret(0x0a0b_bytes32), 2),
+                       });
 
-//     auto gas_before_call = 4 * 3 + 2600 + 8 * 3 + 9000;
-//     ASSERT_EQ(host.recorded_calls.size(), 1);
-//     const auto& call_msg = host.recorded_calls.back();
-//     EXPECT_EQ(call_msg.kind, EVMC_CALL);
-//     EXPECT_EQ(call_msg.depth, 1);
-//     auto gas_left = 40000 - gas_before_call;
-//     EXPECT_EQ(call_msg.gas, gas_left - gas_left / 64);
-//     EXPECT_EQ(call_msg.recipient, call_dst);
-//     EXPECT_EQ(call_msg.sender, call_sender);
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(
+                call2(callee) + sstore(1, returndatacopy(31, 30, 1) + mload(0)) + OP_STOP, 4),
+        });
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x000a_bytes32;
+    expect.post[callee].exists = true;
+}
 
-//     EXPECT_GAS_USED(EVMC_SUCCESS, gas_before_call + call_msg.gas - host.call_result.gas_left);
-// }
+TEST_F(state_transition, delegatecall2_output)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-// TEST_F(state_transition, call2_with_value_depth_limit)
-// {
-//     // Not implemented in Advanced.
-//     if (is_advanced())
-//         return;
+    pre.insert(callee, {
+                           .code = eof_bytecode(ret(0x0a0b_bytes32), 2),
+                       });
 
-//     rev = EVMC_PRAGUE;
-
-//     constexpr auto call_dst = 0x00000000000000000000000000000000000000aa_address;
-//     host.accounts[call_dst] = {};
-
-//     msg.depth = 1024;
-//     execute(eof_bytecode(call2(call_dst).input(0x0, 0xff).value(0x1) + OP_STOP, 4));
-
-//     EXPECT_EQ(gas_used, 4 * 3 + 2600 + 8 * 3 + 9000);
-//     EXPECT_EQ(result.status_code, EVMC_SUCCESS);
-//     EXPECT_EQ(host.recorded_calls.size(), 0);
-// }
-
-// TEST_F(state_transition, call2_depth_limit)
-// {
-//     // Not implemented in Advanced.
-//     if (is_advanced())
-//         return;
-
-//     rev = EVMC_PRAGUE;
-//     constexpr auto callee = 0xca11ee_address;
-//     host.access_account(callee);
-//     host.accounts[callee].code = "EF00"_hex;
-//     msg.depth = 1024;
-
-//     for (auto op : {OP_CALL2, OP_DELEGATECALL2, OP_STATICCALL2})
-//     {
-//         const auto code = eof_bytecode(push(callee) + 3 * push0() + op + ret_top(), 4);
-//         execute(code);
-//         EXPECT_EQ(result.status_code, EVMC_SUCCESS);
-//         EXPECT_EQ(host.recorded_calls.size(), 0);
-//         EXPECT_OUTPUT_INT(0);
-//     }
-// }
-
-// TEST_F(state_transition, call2_output)
-// {
-//     // Not implemented in Advanced.
-//     if (is_advanced())
-//         return;
-
-//     rev = EVMC_PRAGUE;
-//     constexpr auto callee = 0xca11ee_address;
-//     host.access_account(callee);
-//     host.accounts[callee].code = "EF00"_hex;
-
-//     static bool result_is_correct = false;
-//     static uint8_t call_output[] = {0xa, 0xb};
-
-//     host.accounts[{}].set_balance(1);
-//     host.call_result.output_data = call_output;
-//     host.call_result.output_size = sizeof(call_output);
-//     host.call_result.release = [](const evmc_result* r) {
-//         result_is_correct = r->output_size == sizeof(call_output) && r->output_data ==
-//         call_output;
-//     };
-
-//     auto code_prefix = 3 * push0() + push(callee);
-//     auto code_suffix_output_0 = returndatacopy(0, 0, 0) + ret(0, 3);
-//     auto code_suffix_output_1 = returndatacopy(1, 0, 1) + ret(0, 3);
-
-//     for (auto op : {OP_CALL2, OP_DELEGATECALL2, OP_STATICCALL2})
-//     {
-//         result_is_correct = false;
-//         const uint16_t max_stack = 4 + (op == OP_CALL2 ? 0 : 1);
-//         execute(eof_bytecode(code_prefix + hex(op) + code_suffix_output_1, max_stack));
-//         EXPECT_TRUE(result_is_correct);
-//         EXPECT_EQ(result.status_code, EVMC_SUCCESS);
-//         ASSERT_EQ(result.output_size, 3);
-//         EXPECT_EQ(result.output_data[0], 0);
-//         EXPECT_EQ(result.output_data[1], 0xa);
-//         EXPECT_EQ(result.output_data[2], 0);
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(
+                delegatecall2(callee) + sstore(1, returndatacopy(31, 30, 1) + mload(0)) + OP_STOP,
+                4),
+        });
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x000a_bytes32;
+    expect.post[callee].exists = true;
+}
 
 
-//         result_is_correct = false;
-//         execute(eof_bytecode(code_prefix + hex(op) + code_suffix_output_0, max_stack));
-//         EXPECT_TRUE(result_is_correct);
-//         EXPECT_EQ(result.status_code, EVMC_SUCCESS);
-//         ASSERT_EQ(result.output_size, 3);
-//         EXPECT_EQ(result.output_data[0], 0);
-//         EXPECT_EQ(result.output_data[1], 0);
-//         EXPECT_EQ(result.output_data[2], 0);
-//     }
-// }
+TEST_F(state_transition, staticcall2_output)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-// TEST_F(state_transition, call2_value_zero_to_nonexistent_account)
-// {
-//     // Not implemented in Advanced.
-//     if (is_advanced())
-//         return;
+    pre.insert(callee, {
+                           .code = eof_bytecode(ret(0x0a0b_bytes32), 2),
+                       });
 
-//     rev = EVMC_PRAGUE;
-//     host.call_result.gas_left = 1000;
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(
+                staticcall2(callee) + sstore(1, returndatacopy(31, 30, 1) + mload(0)) + OP_STOP, 4),
+        });
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x000a_bytes32;
+    expect.post[callee].exists = true;
+}
 
-//     const auto code = eof_bytecode(call2(0xaa).input(0, 0x40) + OP_STOP, 4);
+TEST_F(state_transition, call2_value_zero_to_nonexistent_account)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-//     execute(9000, code);
-//     auto gas_before_call = 4 * 3 + 2 * 3 + 2600;
-//     auto gas_left = 9000 - gas_before_call;
-//     ASSERT_EQ(host.recorded_calls.size(), 1);
-//     const auto& call_msg = host.recorded_calls.back();
-//     EXPECT_EQ(call_msg.kind, EVMC_CALL);
-//     EXPECT_EQ(call_msg.depth, 1);
-//     EXPECT_EQ(call_msg.gas, gas_left - gas_left / 64);
-//     EXPECT_EQ(call_msg.input_size, 64);
-//     EXPECT_EQ(call_msg.recipient, 0x00000000000000000000000000000000000000aa_address);
-//     EXPECT_EQ(call_msg.value.bytes[31], 0);
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(sstore(1, call2(callee).input(0x0, 0xff).value(0x0)) + OP_STOP, 4),
+        });
+    tx.gas_limit = 30000;
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x00_bytes32;
+}
 
-//     EXPECT_GAS_USED(EVMC_SUCCESS, gas_before_call + call_msg.gas - host.call_result.gas_left);
-// }
+TEST_F(state_transition, call2_then_oog)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-// TEST_F(state_transition, call2_new_account_creation_cost)
-// {
-//     // Not implemented in Advanced.
-//     if (is_advanced())
-//         return;
-//     constexpr auto call_dst = 0x00000000000000000000000000000000000000ad_address;
-//     // host.accounts[call_dst].code = eof_bytecode(OP_STOP);
-//     constexpr auto msg_dst = 0x0000000000000000000000000000000000000003_address;
-//     const auto code =
-//         eof_bytecode(call2(call_dst).value(calldataload(0)).input(0, 0) + ret_top(), 4);
+    pre.insert(callee,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(sstore(1, 0xcc_bytes32) + OP_STOP, 2),
+        });
 
-//     msg.recipient = msg_dst;
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(sstore(1, 0xcc_bytes32) + call2(callee) + rjump(-3), 4),
+        });
+    // Enough to complete CALL2, OOG in infinite loop.
+    tx.gas_limit = 35000;
 
-//     rev = EVMC_PRAGUE;
-//     {
-//         auto gas_before_call = 3 * 3 + 3 + 3 + 2600;
-//         auto gas_left = 40000 - gas_before_call;
+    expect.gas_used = tx.gas_limit;
+    expect.post[*tx.to].storage[0x01_bytes32] = 0xdd_bytes32;
+    expect.post[callee].storage[0x01_bytes32] = 0xdd_bytes32;
+    expect.status = EVMC_OUT_OF_GAS;
+}
 
-//         host.accounts[msg.recipient].set_balance(0);
-//         execute(40000, code, "00"_hex);
-//         EXPECT_OUTPUT_INT(0);
-//         ASSERT_EQ(host.recorded_calls.size(), 1);
-//         auto& call_msg = host.recorded_calls.back();
-//         EXPECT_EQ(call_msg.recipient, call_dst);
-//         EXPECT_EQ(call_msg.gas, gas_left - gas_left / 64);
-//         EXPECT_EQ(call_msg.sender, msg_dst);
-//         EXPECT_EQ(call_msg.value.bytes[31], 0);
-//         EXPECT_EQ(call_msg.input_size, 0);
-//         EXPECT_GAS_USED(EVMC_SUCCESS, gas_before_call + call_msg.gas + 3 + 3 + 3 + 3 + 3);
-//         ASSERT_EQ(host.recorded_account_accesses.size(), 4);
-//         EXPECT_EQ(host.recorded_account_accesses[0], 0x00_address);   // EIP-2929 tweak
-//         EXPECT_EQ(host.recorded_account_accesses[1], msg.recipient);  // EIP-2929 tweak
-//         EXPECT_EQ(host.recorded_account_accesses[2], call_dst);       // ?
-//         EXPECT_EQ(host.recorded_account_accesses[3], call_dst);       // Call.
-//         host.recorded_account_accesses.clear();
-//         host.recorded_calls.clear();
-//     }
-//     {
-//         auto gas_before_call = 3 * 3 + 3 + 3 + 2600 + 25000 + 9000;
-//         auto gas_left = 40000 - gas_before_call;
+TEST_F(state_transition, delegatecall2_then_oog)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-//         host.accounts[msg.recipient].set_balance(1);
-//         execute(
-//             40000, code, "0000000000000000000000000000000000000000000000000000000000000001"_hex);
-//         EXPECT_OUTPUT_INT(0);
-//         ASSERT_EQ(host.recorded_calls.size(), 1);
-//         auto& call_msg = host.recorded_calls.back();
-//         EXPECT_EQ(call_msg.recipient, call_dst);
-//         EXPECT_EQ(call_msg.gas, gas_left - gas_left / 64);
-//         EXPECT_EQ(call_msg.sender, msg_dst);
-//         EXPECT_EQ(call_msg.value.bytes[31], 1);
-//         EXPECT_EQ(call_msg.input_size, 0);
-//         EXPECT_GAS_USED(EVMC_SUCCESS, gas_before_call + call_msg.gas + 3 + 3 + 3 + 3 + 3);
-//         ASSERT_EQ(host.recorded_account_accesses.size(), 6);
-//         EXPECT_EQ(host.recorded_account_accesses[0], 0x00_address);   // EIP-2929 tweak
-//         EXPECT_EQ(host.recorded_account_accesses[1], msg.recipient);  // EIP-2929 tweak
-//         EXPECT_EQ(host.recorded_account_accesses[2], call_dst);       // ?
-//         EXPECT_EQ(host.recorded_account_accesses[3], call_dst);       // Account exist?.
-//         EXPECT_EQ(host.recorded_account_accesses[4], msg.recipient);  // Balance.
-//         EXPECT_EQ(host.recorded_account_accesses[5], call_dst);       // Call.
-//         host.recorded_account_accesses.clear();
-//         host.recorded_calls.clear();
-//     }
-// }
+    pre.insert(callee,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(sstore(1, 0xcc_bytes32) + OP_STOP, 2),
+        });
 
-// // TEST_F(state_transition, callcode_new_account_create)
-// // {
-// //     constexpr auto code = "60008080806001600061c350f250";
-// //     constexpr auto call_sender = 0x5e4d00000000000000000000000000000000d4e5_address;
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(sstore(1, 0xcc_bytes32) + delegatecall2(callee) + rjump(-3), 3),
+        });
+    // Enough to complete DELEGATECALL2, OOG in infinite loop.
+    tx.gas_limit = 35000;
 
-// //     msg.recipient = call_sender;
-// //     host.accounts[msg.recipient].set_balance(1);
-// //     host.call_result.gas_left = 1;
-// //     execute(100000, code);
-// //     EXPECT_EQ(gas_used, 59722);
-// //     EXPECT_EQ(result.status_code, EVMC_SUCCESS);
-// //     ASSERT_EQ(host.recorded_calls.size(), 1);
-// //     const auto& call_msg = host.recorded_calls.back();
-// //     EXPECT_EQ(call_msg.kind, EVMC_CALLCODE);
-// //     EXPECT_EQ(call_msg.depth, 1);
-// //     EXPECT_EQ(call_msg.gas, 52300);
-// //     EXPECT_EQ(call_msg.sender, call_sender);
-// //     EXPECT_EQ(call_msg.value.bytes[31], 1);
-// // }
+    expect.gas_used = tx.gas_limit;
+    expect.post[*tx.to].storage[0x01_bytes32] = 0xdd_bytes32;
+    expect.post[callee].storage[0x01_bytes32] = 0xdd_bytes32;
+    expect.status = EVMC_OUT_OF_GAS;
+}
 
-// // TEST_F(state_transition, call_then_oog)
-// // {
-// //     // Performs a CALL then OOG in the same code block.
-// //     auto call_dst = evmc_address{};
-// //     call_dst.bytes[19] = 0xaa;
-// //     host.accounts[call_dst] = {};
-// //     host.call_result.status_code = EVMC_FAILURE;
-// //     host.call_result.gas_left = 0;
+TEST_F(state_transition, staticcall2_then_oog)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-// //     const auto code =
-// //         call(0xaa).gas(254).value(0).input(0, 0x40).output(0, 0x40) + 4 * add(OP_DUP1) +
-// OP_POP;
+    pre.insert(callee, {
+                           .code = eof_bytecode(OP_STOP),
+                       });
 
-// //     execute(1000, code);
-// //     EXPECT_EQ(gas_used, 1000);
-// //     ASSERT_EQ(host.recorded_calls.size(), 1);
-// //     const auto& call_msg = host.recorded_calls.back();
-// //     EXPECT_EQ(call_msg.gas, 254);
-// //     EXPECT_EQ(result.gas_left, 0);
-// //     EXPECT_EQ(result.status_code, EVMC_OUT_OF_GAS);
-// // }
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(sstore(1, 0xcc_bytes32) + staticcall2(callee) + rjump(-3), 3),
+        });
+    // Enough to complete STATICCALL2, OOG in infinite loop.
+    tx.gas_limit = 35000;
 
-// // TEST_F(state_transition, callcode_then_oog)
-// // {
-// //     // Performs a CALLCODE then OOG in the same code block.
-// //     host.call_result.status_code = EVMC_FAILURE;
-// //     host.call_result.gas_left = 0;
+    expect.gas_used = tx.gas_limit;
+    expect.post[*tx.to].storage[0x01_bytes32] = 0xdd_bytes32;
+    expect.post[callee].exists = true;
+    expect.status = EVMC_OUT_OF_GAS;
+}
 
-// //     const auto code =
-// //         callcode(0xaa).gas(100).value(0).input(0, 3).output(3, 9) + 4 * add(OP_DUP1) + OP_POP;
+TEST_F(state_transition, call2_input)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-// //     execute(825, code);
-// //     EXPECT_STATUS(EVMC_OUT_OF_GAS);
-// //     ASSERT_EQ(host.recorded_calls.size(), 1);
-// //     const auto& call_msg = host.recorded_calls.back();
-// //     EXPECT_EQ(call_msg.gas, 100);
-// // }
+    pre.insert(callee, {
+                           .code = eof_bytecode(ret(eq(calldataload(0), 0x010203)), 2),
+                       });
 
-// // TEST_F(state_transition, delegatecall_then_oog)
-// // {
-// //     // Performs a CALL then OOG in the same code block.
-// //     auto call_dst = evmc_address{};
-// //     call_dst.bytes[19] = 0xaa;
-// //     host.accounts[call_dst] = {};
-// //     host.call_result.status_code = EVMC_FAILURE;
-// //     host.call_result.gas_left = 0;
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(mstore(0, 0x010203) + call2(callee).input(0, 32) +
+                                     sstore(1, returndataload(0)) + OP_STOP,
+                4),
+        });
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x01_bytes32;
+    expect.post[callee].exists = true;
+}
 
-// //     const auto code =
-// //         delegatecall(0xaa).gas(254).input(0, 0x40).output(0, 0x40) + 4 * add(OP_DUP1) +
-// OP_POP;
+TEST_F(state_transition, delegatecall2_input)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-// //     execute(1000, code);
-// //     EXPECT_EQ(gas_used, 1000);
-// //     ASSERT_EQ(host.recorded_calls.size(), 1);
-// //     const auto& call_msg = host.recorded_calls.back();
-// //     EXPECT_EQ(call_msg.gas, 254);
-// //     EXPECT_EQ(result.gas_left, 0);
-// //     EXPECT_EQ(result.status_code, EVMC_OUT_OF_GAS);
-// // }
+    pre.insert(callee, {
+                           .code = eof_bytecode(ret(eq(calldataload(0), 0x010203)), 2),
+                       });
 
-// // TEST_F(state_transition, staticcall_then_oog)
-// // {
-// //     // Performs a STATICCALL then OOG in the same code block.
-// //     auto call_dst = evmc_address{};
-// //     call_dst.bytes[19] = 0xaa;
-// //     host.accounts[call_dst] = {};
-// //     host.call_result.status_code = EVMC_FAILURE;
-// //     host.call_result.gas_left = 0;
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(mstore(0, 0x010203) + delegatecall2(callee).input(0, 32) +
+                                     sstore(1, returndataload(0)) + OP_STOP,
+                3),
+        });
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x01_bytes32;
+    expect.post[callee].exists = true;
+}
 
-// //     const auto code =
-// //         staticcall(0xaa).gas(254).input(0, 0x40).output(0, 0x40) + 4 * add(OP_DUP1) + OP_POP;
+TEST_F(state_transition, staticcall2_input)
+{
+    rev = EVMC_PRAGUE;
+    constexpr auto callee = 0xca11ee_address;
 
-// //     execute(1000, code);
-// //     EXPECT_EQ(gas_used, 1000);
-// //     ASSERT_EQ(host.recorded_calls.size(), 1);
-// //     const auto& call_msg = host.recorded_calls.back();
-// //     EXPECT_EQ(call_msg.gas, 254);
-// //     EXPECT_EQ(result.gas_left, 0);
-// //     EXPECT_EQ(result.status_code, EVMC_OUT_OF_GAS);
-// // }
+    pre.insert(callee, {
+                           .code = eof_bytecode(ret(eq(calldataload(0), 0x010203)), 2),
+                       });
 
-// // TEST_F(state_transition, staticcall_input)
-// // {
-// //     const auto code = mstore(3, 0x010203) + staticcall(0).gas(0xee).input(32, 3);
-// //     execute(code);
-// //     ASSERT_EQ(host.recorded_calls.size(), 1);
-// //     const auto& call_msg = host.recorded_calls.back();
-// //     EXPECT_EQ(call_msg.gas, 0xee);
-// //     EXPECT_EQ(call_msg.input_size, 3);
-// //     EXPECT_EQ(hex(bytes_view(call_msg.input_data, call_msg.input_size)), "010203");
-// // }
+    tx.to = To;
+    pre.insert(*tx.to,
+        {
+            .storage = {{0x01_bytes32, {.current = 0xdd_bytes32, .original = 0xdd_bytes32}}},
+            .code = eof_bytecode(mstore(0, 0x010203) + staticcall2(callee).input(0, 32) +
+                                     sstore(1, returndataload(0)) + OP_STOP,
+                3),
+        });
+    expect.post[*tx.to].storage[0x01_bytes32] = 0x01_bytes32;
+    expect.post[callee].exists = true;
+}
 
 // // TEST_F(state_transition, call_with_value_low_gas)
 // // {
