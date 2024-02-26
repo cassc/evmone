@@ -49,3 +49,109 @@ TEST_F(state_transition, create2_max_nonce)
 
     expect.post[*tx.to].nonce = pre.get(*tx.to).nonce;  // Nonce is unchanged.
 }
+
+TEST_F(state_transition, code_deployment_out_of_gas_tw)
+{
+    rev = EVMC_TANGERINE_WHISTLE;        // 63/64 gas rule enabled
+    const auto initcode = ret(0, 5000);  // create contract will a lot of zeros, deploy cost 1M
+
+    tx.to = To;
+    tx.gas_limit = 1000000;
+    pre.insert(To, {.code = mstore(0, push(initcode)) +
+                            sstore(0, create().input(32 - initcode.size(), initcode.size()))});
+
+    expect.post[To].storage[0x00_bytes32] = 0x00_bytes32;
+}
+
+TEST_F(state_transition, code_deployment_out_of_gas_f)
+{
+    rev = EVMC_FRONTIER;
+    const auto initcode = ret(0, 1000);  // create contract will a lot of zeros
+
+    tx.to = To;
+    tx.gas_limit = 100000;
+    pre.insert(To, {.code = mstore(0, push(initcode)) +
+                            sstore(0, create().input(32 - initcode.size(), initcode.size()))});
+
+    const auto created = compute_create_address(To, pre.get(To).nonce);
+    expect.post[created].code = bytes{};  // code deployment failure creates empty account
+    expect.post[created].nonce = 0;
+    bytes32 ccc{};
+    std::copy(std::begin(created.bytes), std::end(created.bytes), &ccc.bytes[12]);
+    expect.post[To].storage[0x00_bytes32] = ccc;  // address of created empty
+}
+
+TEST_F(state_transition, code_deployment_out_of_gas_storage_tw)
+{
+    rev = EVMC_TANGERINE_WHISTLE;          // 63/64 gas rule enabled
+    const auto initcode = sstore(0, 1)     // set storage
+                          + ret(0, 5000);  // create contract will a lot of zeros
+
+    tx.to = To;
+    tx.gas_limit = 1000000;
+    pre.insert(To, {.code = mstore(0, push(initcode)) +
+                            sstore(0, create().input(32 - initcode.size(), initcode.size()))});
+
+    expect.post[To].storage[0x00_bytes32] = 0x00_bytes32;
+}
+
+TEST_F(state_transition, code_deployment_out_of_gas_storage_f)
+{
+    rev = EVMC_FRONTIER;
+    const auto initcode = sstore(0, 1)     // set storage
+                          + ret(0, 1000);  // create contract will a lot of zeros
+
+    tx.to = To;
+    tx.gas_limit = 100000;
+    pre.insert(To, {.code = mstore(0, push(initcode)) +
+                            sstore(0, create().input(32 - initcode.size(), initcode.size()))});
+
+    expect.post[To].exists = true;
+    const auto created = compute_create_address(To, pre.get(To).nonce);
+    expect.post[created].code = bytes{};  // code deployment failure creates empty account
+    expect.post[created].nonce = 0;
+    expect.post[created].storage[0x00_bytes32] = 0x01_bytes32;  // storage stays
+    bytes32 ccc{};
+    std::copy(std::begin(created.bytes), std::end(created.bytes), &ccc.bytes[12]);
+    expect.post[To].storage[0x00_bytes32] = ccc;
+    expect.gas_used = 93134;
+}
+
+TEST_F(state_transition, code_deployment_out_of_gas_refund_tw)
+{
+    rev = EVMC_TANGERINE_WHISTLE;          // 63/64 gas rule enabled
+    const auto initcode = sstore(0, 1)     // set storage
+                          + sstore(0, 0)   // gas refund
+                          + ret(0, 5000);  // create contract will a lot of zeros
+
+    tx.to = To;
+    tx.gas_limit = 1000000;
+    pre.insert(To, {.code = mstore(0, push(initcode)) +
+                            sstore(0, create().input(32 - initcode.size(), initcode.size()))});
+
+    expect.post[To].storage[0x00_bytes32] = 0x00_bytes32;
+    expect.gas_used = 990207;
+}
+
+TEST_F(state_transition, code_deployment_out_of_gas_refund_f)
+{
+    rev = EVMC_FRONTIER;
+    const auto initcode = sstore(0, 1)     // set storage
+                          + sstore(0, 0)   // gas refund
+                          + ret(0, 1000);  // create contract will a lot of zeros
+
+    tx.to = To;
+    tx.gas_limit = 100000;
+    pre.insert(To, {.code = mstore(0, push(initcode)) +
+                            sstore(0, create().input(32 - initcode.size(), initcode.size()))});
+
+    expect.post[To].exists = true;
+    const auto created = compute_create_address(To, pre.get(To).nonce);
+    expect.post[created].code = bytes{};  // code deployment failure creates empty account
+    expect.post[created].nonce = 0;
+    expect.post[created].storage[0x00_bytes32] = 0x00_bytes32;
+    bytes32 ccc{};
+    std::copy(std::begin(created.bytes), std::end(created.bytes), &ccc.bytes[12]);
+    expect.post[To].storage[0x00_bytes32] = ccc;
+    expect.gas_used = 83140;
+}
